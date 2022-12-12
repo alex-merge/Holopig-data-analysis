@@ -1,2 +1,1 @@
-# Projet-Holopig
-Repository du défi de bioinformatique : analyse des données du projet Holopig.
+Analyses des données du projet Holopig de l'INRAE.
