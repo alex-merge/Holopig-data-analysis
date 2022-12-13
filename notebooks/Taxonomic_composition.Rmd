@@ -1,0 +1,12 @@
+---
+title: "Taxonomic composition"
+output:
+  html_document:
+    df_print: paged
+---
+
+# A - Chargement du jeu de données
+
+```{r}
+df = read.table(file="../raw_data/quantification_by_contig_lineage_all.tsv")
+```
