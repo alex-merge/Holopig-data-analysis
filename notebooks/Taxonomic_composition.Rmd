@@ -8,5 +8,8 @@ output:
 # A - Chargement du jeu de données
 
 ```{r}
-df = read.table(file="../raw_data/quantification_by_contig_lineage_all.tsv")
+df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.csv",
+              sep="\t")
+
+
 ```
