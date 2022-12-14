@@ -1,6 +1,8 @@
 library(dplyr)
 library(tidyr)
 
+#===============================================================================
+# Refining abundance data : phyloXsample
 df = read.csv(file="raw_data/quantification_by_contig_lineage_all_reduced.csv",
               sep="\t",
               na.strings = "None")
@@ -22,6 +24,8 @@ write.table(df_abond,
             row.names = FALSE,
             sep=";")
 
+#===============================================================================
+# Refining abundance data : abundance by genre and sample.
 rm(list=ls())
 
 df = read.csv(file="refined_data/taxonomic_abondance.csv",
@@ -74,69 +78,23 @@ for (row in 1:dim(df_bp)[1]){
 
 df_bp$type = as.factor(df_bp$type)
 df_bp$regne = as.factor(df_bp$regne)
+df_bp = df_bp[, c(4, 5, 1, 2, 3)]
 
+write.table(df_bp, 
+            file = "refined_data/taxonomic_abondance_by_genre.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+#===============================================================================
+# Creating the heatmap with abundnace by genre.
+rm(list=ls())
 
 library(ggplot2)
 library(RColorBrewer)
 library(scales)
 thres = 0.001
 # df_bp$values = -log(df_bp$values)
-
-
-
-# Heatmap des archées
-data = subset(df_bp, genre %in% archees & values >= thres)
-ggplot(data, aes(ind, genre, fill= values)) + 
-  geom_tile(colour = "white", size = 0.7)+
-  scale_fill_distiller(palette = "Spectral", 
-                       limits = c(min(data$values), max(data$values)),
-                       direction = -1) +
-  scale_y_discrete(expand=c(0, 0))+
-  scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Abondance relative", title = "Abondance relative des archées par échantillon")+
-  theme_grey(base_size=10)+
-  theme(line = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border=element_blank(),
-        legend.text=element_text(face="bold"),
-        plot.title = element_text(face="bold"),
-        legend.title = element_text(face="bold"))
-scale = 150
-ggsave(filename = "export/HM_taxo_archees.png",
-       width = 21*scale,
-       height = 9*scale,
-       units = "px",
-       dpi=200)
-
-# Heatmap des bactéries
-data = subset(df_bp, genre %in% bacteries & values >= thres)
-ggplot(data, aes(ind, genre, fill= values)) + 
-  geom_tile(colour = "white", size = 0.5)+
-  scale_fill_distiller(palette = "Spectral", 
-                       limits = c(min(data$values), max(data$values)),
-                       direction = -1) +
-  scale_y_discrete(expand=c(0, 0))+
-  scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Abondance relative", title = "Abondance relative des bactéries par échantillon")+
-  theme_grey(base_size=10)+
-  theme(line = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border=element_blank(),
-        legend.text=element_text(face="bold"),
-        plot.title = element_text(face="bold"),
-        legend.title = element_text(face="bold"))
-scale = 200
-ggsave(filename = "export/HM_taxo_bacteries.png",
-       width = 20*scale,
-       height = 11*scale,
-       units = "px",
-       dpi=200)
 
 # Heatmap totale
 data = subset(df_bp, values >= thres)
