@@ -57,10 +57,10 @@ for (col in colnames(df_bygenre)[2:35]){
 }
 df_bp$values = values
 
-bacteries = levels( droplevels( subset(df, regne == "Bacteria")$genre ) )[-1]
-archees = levels( droplevels( subset(df, regne == "Archaea")$genre ) )[-1]
-euka = levels( droplevels( subset(df, regne == "Eukaryota")$genre ) )[-1]
-virus = levels( droplevels( subset(df, regne == "Viruses")$genre ) )[-1]
+bacteries = levels( droplevels( subset(df, regne == "Bacteria")$genre ) )
+archees = levels( droplevels( subset(df, regne == "Archaea")$genre ) )
+euka = levels( droplevels( subset(df, regne == "Eukaryota")$genre ) )
+virus = levels( droplevels( subset(df, regne == "Viruses")$genre ) )
 categorie = c("Control", "Colistine", "Control", "Control", "Control", "Control",
               "Colistine", "Colistine", "Control", "Colistine", "Colistine", "Control",
               "Control", "Control", "Control", "Control", "Control", "Colistine",
@@ -87,17 +87,17 @@ write.table(df_bp,
             sep=";")
 
 #===============================================================================
-# Creating the heatmap with abundnace by genre.
-rm(list=ls())
+# Creating the heatmap with abundance by genre.
 
 library(ggplot2)
 library(RColorBrewer)
-library(scales)
+#library(scales)
 thres = 0.001
-# df_bp$values = -log(df_bp$values)
 
-# Heatmap totale
+# Filtering data and getting the log of the values.
 data = subset(df_bp, values >= thres)
+data$values = log(data$values)
+
 ggplot(data, aes(ind, genre, fill= values)) + 
   geom_tile(colour = "white", size = 0.5)+
   scale_fill_distiller(palette = "Spectral", 
@@ -105,11 +105,12 @@ ggplot(data, aes(ind, genre, fill= values)) +
                        direction = -1) +
   scale_y_discrete(expand=c(0, 0))+
   scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Abondance relative", title = "Abondance relative des genres par échantillon")+
+  labs(fill="Logarithme de\nl'abondance relative", title = "Abondance relative des genres par échantillon")+
   theme_grey(base_size=12)+
   theme(line = element_blank(),
         axis.ticks.x = element_blank(),
         axis.text.x = element_blank(),
+        axis.text.y = element_text(face="bold.italic"),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         panel.border=element_blank(),
