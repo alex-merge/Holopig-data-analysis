@@ -9,18 +9,23 @@ nbr_fichier = 20 #Nombre de fichier voulus
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-data = read.csv(filepath, sep="\t")
+#Importation of the .tsv with the header as a line
+data = read.csv(filepath, sep="\t", header = FALSE)
 
-quant = c()
-for (q in 1:nbr_fichier){
-  quant = c(quant, q/nbr_fichier)
-}
+#Parting the raw data by the number of lines
+nb_rows = nrow(data)
+nb_rows_per_file = ceiling(nb_rows/nbr_fichier) #round up the number
+header_line = data[1,]
 
-limits = c(0,as.integer(quantile(1:dim(data)[1], probs = quant)))
+nb_row_inf = 1 #row number of the header line
 
-for (id in 2:length(limits)){
-  out_df = data[limits[id-1]+1:limits[id],]
+for (id in 1:nbr_fichier) {
+  nb_row_inf = nb_row_inf + 1
+  nb_row_sup = id*nb_rows_per_file
+  out_df = rbind(header_line, data[nb_row_inf:nb_row_sup, ])
   write.table(out_df, 
-              file = paste("data/",output_basename,id,".csv", sep=""), 
-              sep=";")
+              file = paste("refined_data/",output_basename,id,".csv", sep=""), 
+              row.names = FALSE, col.names = FALSE, sep=";")
+  nb_row_inf = nb_row_sup
 }
+
