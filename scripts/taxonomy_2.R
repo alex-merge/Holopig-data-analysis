@@ -223,6 +223,8 @@ ggsave(filename = "export/HM_taxo_complete.png",
        dpi=200)
 
 #===============================================================================
+## Dendogram graph
+library(tidyverse)
 
 rm(list=ls())
 thres = 0.001
@@ -262,54 +264,102 @@ edges_level6_7 <- data_tmp %>% select(level6, level7) %>% unique %>% rename(from
 edges=drop_na(rbind(edges_level1_2, edges_level2_3, edges_level3_4, edges_level4_5,
                     edges_level5_6, edges_level6_7)
               )
-edges = subset(edges, !(from == "") & !(to == ""))
+
+unwanted_cat = c("", "Unable to found taxonomy consensus", "Unknown")
+edges = subset(edges, !(from %in% unwanted_cat) & !(to %in% unwanted_cat))
 edges = droplevels(edges)
 
 
 values_t = c()
 values_c = c()
-for (row in 1:dim(edges)[1]){
-  name = as.character(edges[row, "to"])
-  print(name)
+for (name in unique(c(as.character(edges$from), as.character(edges$to)))){
   if (name %in% levels(data$genre)){
     values_t = c(values_t, mean(subset(data, genre == name)$mean_t))
     values_c = c(values_c, mean(subset(data, genre == name)$mean_c))
-  }else if (name %in% levels(data$famille)){
-    values_t = c(values_t, mean(subset(data, famille == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, famille == name)$mean_c))
-  }else if (name %in% levels(data$ordre)){
-    values_t = c(values_t, mean(subset(data, ordre == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, ordre == name)$mean_c))
-  }else if (name %in% levels(data$classe)){
-    values_t = c(values_t, mean(subset(data, classe == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, classe == name)$mean_c))
-  }else if (name %in% levels(data$phylum)){
-    values_t = c(values_t, mean(subset(data, phylum == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, phylum == name)$mean_c))
-  }else if (name %in% levels(data$regne)){
-    values_t = c(values_t, mean(subset(data, regne == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, regne == name)$mean_c))
-  }else if (name %in% levels(data$root)){
-    values_t = c(values_t, mean(subset(data, root == name)$mean_t))
-    values_c = c(values_c, mean(subset(data, root == name)$mean_c))
   }else {
-    values_t = NA
-    values_c = NA
+    values_t = c(values_t, NA)
+    values_c = c(values_c, NA)
   }
 }
 
-df_t = edges
-df_c = edges
-df_t$abond = values_t
-df_c$abond = values_c
+df_t = data.frame(name = unique(c(as.character(edges$from), as.character(edges$to))), 
+                  abond = values_t)
+df_t$group = edges$from[ match( df_t$name, edges$to ) ]
+df_c = data.frame(name = unique(c(as.character(edges$from), as.character(edges$to))), 
+                  abond = values_c)
+df_c$group = edges$from[ match( df_c$name, edges$to ) ]
 
 library(ggraph)
 library(igraph)
-library(tidyverse)
 library(RColorBrewer) 
 
-mygraph <- graph_from_data_frame( edges )
-ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
-  geom_edge_diagonal() +
-  geom_node_point() +
-  theme_void()
+t_graph <- graph_from_data_frame( edges, vertices=df_t )
+
+# Make the plot
+ggraph(t_graph, layout = 'dendrogram', circular = TRUE) + 
+  geom_edge_diagonal(colour="grey") +
+  scale_edge_colour_distiller(palette = "RdPu") +
+  geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=name, colour=group), size=2.7, alpha=1) +
+  geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abond, alpha=0.2)) +
+  scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
+  scale_size_continuous( range = c(0.1,10) ) +
+  theme_void() +
+  theme(
+    legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm"),
+  ) +
+  expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
+
+#===============================================================================
+## Barplot graph
+library(ggplot2)
+
+rm(list=ls())
+
+df = read.csv(file="refined_data/taxonomic_abondance_complete.csv",
+              sep=";",
+              stringsAsFactors = T,
+              na.strings = "NA")
+df$ind = as.factor(df$ind)
+
+thres = 0.001
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
+
+# Filtering data and getting the log of the values.
+data = subset(df, abond >= thres & regne %in% selected_classes)
+data = drop_na(data[c("regne","genre","ind","cat","abond")])
+data$abond = log(data$abond)
+data = droplevels(data[order(data$abond, decreasing = T),])
+data$genre = factor(data$genre, levels = unique(data$genre))
+
+ggplot(data, aes(abond, genre)) + 
+  geom_boxplot(fill="slateblue", alpha=0.2)+
+  scale_y_discrete(expand=c(0, 0))+
+  #scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Logarithme de\nl'abondance relative", title = "Abondance relative des genres par échantillon")+
+  xlab("Logarithme de l'abondance relative")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        #axis.ticks.x = element_blank(),
+        axis.text.x = element_text(face="bold"),
+        axis.text.y = element_text(face="bold.italic"),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(data$regne), 
+             cols = vars(factor(data$cat, levels = c("Controle", "Colistine"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = "export/BP_taxo_complete(complete_csv).png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
