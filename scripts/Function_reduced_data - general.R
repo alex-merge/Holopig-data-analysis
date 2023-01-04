@@ -1,3 +1,6 @@
+# Library
+library(ggplot2)
+
 ## MAKING ASSOCIATION BETWEEN THE SAMPLE AND ITS CONDITION ##
 name_sample = c()
 for (nb_pig in 1:34) {
@@ -54,6 +57,12 @@ for (name in name_sample){
   functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row
 }
 
+#inverse rows and columns
+functions_general_abdrev_inv = data.frame(t(functions_general_abdrev[-1]))
+colnames(functions_general_abdrev_inv) = functions_general_abdrev[, 1]
+
+## !! attention !!
+functions_general_cat = merge(functions_general_abdrev_inv, data_cat_sample, by=c('var1', 'var2'), all = TRUE)
 
 #metabolic_function = c()
 #animal = c()
@@ -111,9 +120,10 @@ for (name in name_sample){
 
 ################################################################################
 
-# Library
-library(ggplot2)
 
+# Heatmap ggplot
+ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) + 
+   #geom_tile()
 
 
 
