@@ -23,3 +23,5 @@ df2newick <- function(df, innerlabel=FALSE){
 }
 
 tree = df2newick(df = df[1:2,c("regne", "phylum", "classe")])
+
+## see: https://phylot.biobyte.de/
