@@ -70,6 +70,123 @@ ggplot(data, aes(x=regne, y=value)) +
 ```
 
 
+## II. Heatmap of abundances by genre
+
+### 1) refining the data
+
+the data are refined to merge the same values of taxonomy and separate the groups (control and treated with colistine).
+
+```{r}
+# Refining abundance data : abundance by genre and sample.
+rm(list=ls())
+
+df = read.csv(file="../refined_data/taxonomic_abondance.csv",
+              sep=";",
+              stringsAsFactors = TRUE,
+              na.strings = "NA")
+
+# Suppression des Règnes non identifiés
+df = droplevels(subset(df, regne %in% c("Bacteria", "Archaea", "Eukaryota", "Viruses")))
+
+genre = unique(df[["genre"]])
+genre = genre[-1]
+
+df_bygenre = data.frame(genre, row.names=genre)
+for (name in genre){
+  for (col in colnames(df)[8:41]){
+    tmp = sum(subset(df, genre == name)[[col]])
+    # print(tmp)
+    df_bygenre[name,col] = tmp
+  }
+}
+
+
+
+df_bp = expand.grid(genre=genre, ind=as.character(seq(1:34)))
+values = c()
+for (col in colnames(df_bygenre)[2:35]){
+  values = c(values, df_bygenre[[col]])
+}
+df_bp$values = values
+
+bacteries = levels( droplevels( subset(df, regne == "Bacteria")$genre ) )
+archees = levels( droplevels( subset(df, regne == "Archaea")$genre ) )
+euka = levels( droplevels( subset(df, regne == "Eukaryota")$genre ) )
+virus = levels( droplevels( subset(df, regne == "Viruses")$genre ) )
+categorie = c("Control", "Colistine", "Control", "Control", "Control", "Control",
+              "Colistine", "Colistine", "Control", "Colistine", "Colistine", "Control",
+              "Control", "Control", "Control", "Control", "Control", "Colistine",
+              "Colistine", "Colistine", "Colistine", "Colistine", "Control", "Control",
+              "Control", "Control", "Control", "Colistine", "Control", "Colistine",
+              "Colistine", "Colistine", "Colistine", "Colistine")
+
+for (row in 1:dim(df_bp)[1]){
+  if (df_bp[row, "genre"] %in% bacteries){df_bp[row, "regne"] = "Bacteria"}
+  if (df_bp[row, "genre"] %in% archees){df_bp[row, "regne"] = "Archaea"}
+  if (df_bp[row, "genre"] %in% euka){df_bp[row, "regne"] = "Eukaryota"}
+  if (df_bp[row, "genre"] %in% virus){df_bp[row, "regne"] = "Viruses"}
+  df_bp[row, "type"] = categorie[as.double(df_bp[row, "ind"])]
+}
+
+df_bp$type = as.factor(df_bp$type)
+df_bp$regne = as.factor(df_bp$regne)
+df_bp = df_bp[, c(4, 5, 1, 2, 3)]
+
+write.table(df_bp, 
+            file = "../refined_data/taxonomic_abondance_by_genre.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+```
+
+
+
+```{r}
+
+library(ggplot2)
+library(RColorBrewer)
+#library(scales)
+thres = 0.001
+
+# Filtering data and getting the log of the values.
+data = subset(df_bp, values >= thres)
+data$values = log(data$values)
+
+ggplot(data, aes(ind, genre, fill= values)) + 
+  geom_tile(colour = "white", size = 0.5)+
+  scale_fill_distiller(palette = "Spectral", 
+                       limits = c(min(data$values), max(data$values)),
+                       direction = -1) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Logarithme de\nl'abondance relative", title = "Abondance relative des genres par échantillon")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(face="bold.italic"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(data$regne), 
+             cols = vars(factor(data$type, levels = c("Control", "Colistine"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = "../export/HM_taxo_complete.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
 
 
 
