@@ -1,5 +1,9 @@
 # Library
 library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(RColorBrewer)
 
 ## MAKING ASSOCIATION BETWEEN THE SAMPLE AND ITS CONDITION ##
 name_sample = c()
@@ -57,79 +61,68 @@ for (name in name_sample){
   functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row
 }
 
-#inverse rows and columns
-functions_general_abdrev_inv = data.frame(t(functions_general_abdrev[-1]))
-colnames(functions_general_abdrev_inv) = functions_general_abdrev[, 1]
+#Reshaping the data fot the heatmap
+reshaped_functions = data.frame(matrix(nrow = 0, ncol = 3))
+colnames(reshaped_functions) = c("Description","Relative_abundance","Pig_name")
 
-## !! attention !!
-functions_general_cat = merge(functions_general_abdrev_inv, data_cat_sample, by=c('var1', 'var2'), all = TRUE)
-
-#metabolic_function = c()
-#animal = c()
-#relative_abundance = c()
-#categorie_concerne = c()
-#somme = c()
-
+for (name_pig in name_sample) {
+ description = functions_general_abdrev$Description
+ reshaped_functions_pig = data.frame(description, functions_general_abdrev[colnames(functions_general_abdrev) == name_pig])
+ reshaped_functions_pig['pig'] = rep(name_pig, length(description))
+ colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] <- 'relative_abundance'
+ reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("description","relative_abundance","pig"), by.x = c("Description","Relative_abundance","Pig_name"))
+}
 
 
-# for (i in 1:(length(function_table)-2)){  # = nb colonne - 2
-#   
-#   verif_func = c()
-#   verif_pig =c()
-#   verif_sum = c()
-#   verif_animal = c()
-#   verif_categorie = c()
-#   
-# 
-#   for (j in 1:length(function_table[,i])){ # = nb ligne dans une colonne donnée
-#     #function_table[j,i] = function_table[j,i]/data$sum[j]
-#     
-#     #somme = c(somme, function_table$data.sum[j]) 
-#     #metabolic_function=c(metabolic_function, function_table$data.Description[j])
-#     #animal=c(animal,paste0("p",i))
-#     #relative_abundance=c(relative_abundance,function_table[j,i])
-#     #categorie_concerne = c(categorie_concerne,categorie[i])
-#     
-#     if (function_table$data.Description[j] %in% verif_func){
-#       posiO = match(function_table$data.Description[j],verif_func)
-#       verif_pig[posiO] =c(verif_pig[posiO] + function_table[j,i])
-#       verif_sum[posiO] =c(verif_sum[posiO] + function_table$data.sum[j])
-#       
-#     }
-#     else {
-#       verif_func = c(verif_func,function_table$data.Description[j])
-#       verif_pig =c(verif_pig,function_table[j,i])
-#       verif_sum = c(verif_sum,function_table$data.sum[j])
-#       verif_animal = c(verif_animal,paste0("p",i))
-#       verif_categorie = c(verif_c xdf ,categorie[i])
-#     }
-#   }
-#   verif_pig_relative = verif_pig / verif_sum# pas sûr que ce soit okk sur le jeu entier, à tester
-#   #somme = c(somme, verif_sum) 
-#   metabolic_function=c(metabolic_function, verif_func)
-#   animal=c(animal,verif_animal)
-#   relative_abundance=c(relative_abundance,verif_pig_relative)
-#   categorie_concerne = c(categorie_concerne,verif_categorie)
-#   
-# }
-# 
+
 # 
 # 
 # test = data.frame(animal,metabolic_function,relative_abundance,categorie_concerne)
 
 
 ################################################################################
+par(mar=c(10,4,4,2))
 
+ggplot(reshaped_functions, aes(Pig_name, Description), fill= Relative_abundance) +
+  geom_tile()
 
 # Heatmap ggplot
-ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) + 
-   #geom_tile()
+ggplot(reshaped_functions, aes(Pig_name,Description)) + 
+  geom_tile(aes(fill= Relative_abundance), colour = "white", size = 0.5) +
+  scale_fill_distiller(palette = "Spectral",
+                       limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance)),
+                       direction = -1) +
+  scale_y_discrete(expand=c(0, 0)) +
+  scale_x_discrete(expand=c(0, 0)) +
+  labs(fill="Relative abundance", title = "Relative abundance of metabolic functions") +
+  theme_grey(base_size=12) +
+  theme(line = element_blank(),
+        #axis.ticks.x = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_text(face="bold.italic"),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15)) +
+  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
+            scales = "free",
+            space = "free")
+scale = 200
+ggsave(filename = "export/heatmap_metabolic_functions.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
 
 
-
-# # Heatmap 
-# ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) + 
-#   #geom_tile()
+# Heatmap
+ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) +
+  geom_tile()
 #   
 #   
 #   geom_tile(colour = "white", size = 0.5)+
