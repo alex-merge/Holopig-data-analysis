@@ -1,0 +1,105 @@
+---
+title: "Taxonomic data preprocessing"
+output: html_notebook
+---
+
+# Taxonomic data preprocessing
+
+## Reduction into a data.frame with relative abundances for each clade
+
+First we load the data into a data.frame called **raw_df**.
+
+```{r}
+raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.csv",
+                  sep="\t",
+                  na.strings = "None")
+head(raw_df)
+```
+
+We will remove some columns and rename others to make it easier to work with. First, we create a new data.frame that will contain all phylogenic levels in distinct columns rather than in the same column as in raw_data.
+
+```{r}
+# strsplit split strings of the lineage_by_level using the "; " pattern
+splitted_levels = strsplit(raw_df$lineage_by_level, "; ")
+abundance_df = as.data.frame( t(data.frame(splitted_levels)) )
+
+# Renaming the columns according to levels
+colnames(abundance_df) = c("kingdom", "phylum", "class", "order", "familly", "genre", "species")
+
+# Removing complicated row names
+rownames(abundance_df) = NULL
+
+# Removing temporary variables
+rm(splitted_levels)
+
+head(abundance_df)
+```
+
+Then we will add the abundance values for each row. Each sample will be represented in a different column. For example the column *abund1* stores abundances of the first sample. The relative abundance is computed by dividing the number of reads by the total number of reads for the given sample.
+
+```{r}
+# We go through all combinations of columns name's containing the number of reads. # Then, we add a column in abundance_df containing relative abundances. 
+for (sample_number in 1:34){
+  if (sample_number < 10){
+    col_name=paste("nb_reads_Holopig_colon0",sample_number,"_quantif_percontig", sep="")
+  }
+  else {
+    col_name=paste("nb_reads_Holopig_colon",sample_number,"_quantif_percontig", sep="")
+  }
+  abundance_df[paste("abond",sample_number,sep="")] = raw_df[col_name]/sum(raw_df[col_name])
+}
+
+# Removing unnecessary variables
+rm(list= c("col_name", "sample_number"))
+```
+
+We will add the *root* column for the phylogenic tree.
+
+```{r}
+abundance_df$root = as.factor( rep("root", dim(abundance_df)[1]) )
+
+# Reordering columns
+abundance_df = abundance_df[, c(dim(abundance_df)[2], 1:(dim(abundance_df)[2]-1))]
+
+head(abundance_df)
+```
+
+We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be agregated for each row and each sample which will lead to a 2649\*34 = 90066 rows (rows times number of samples).
+
+```{r}
+base_taxo = abundance_df[, 1:8]
+category = c("Controle", "Colistine", "Controle", "Controle", "Controle", "Controle",
+              "Colistine", "Colistine", "Controle", "Colistine", "Colistine", "Controle",
+              "Controle", "Controle", "Controle", "Controle", "Controle", "Colistine",
+              "Colistine", "Colistine", "Colistine", "Colistine", "Controle", "Controle",
+              "Controle", "Controle", "Controle", "Colistine", "Controle", "Colistine",
+              "Colistine", "Colistine", "Colistine", "Colistine")
+
+final_df = data.frame()
+for (sample in 1:34){
+  tmp = base_taxo
+  tmp$ind = as.factor(rep(sample, dim(base_taxo)[1]))
+  tmp$cat = as.factor(rep(category[sample], dim(base_taxo)[1]))
+  tmp$abond = abundance_df[[8+sample]]
+  final_df = rbind(final_df, tmp)
+}
+
+rm(list= c("tmp", "base_taxo", "category", "sample"))
+```
+
+Finally we can export both *final_df* and *abundance_df*.
+
+```{r}
+write.table(final_df, 
+            file = "../refined_data/complete_taxonomic_abondance.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+write.table(abundance_df, 
+            file = "../refined_data/complete_phylogenic_X_sample.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+```
