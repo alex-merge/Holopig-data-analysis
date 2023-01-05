@@ -313,6 +313,7 @@ ggraph(t_graph, layout = 'dendrogram', circular = TRUE) +
 #===============================================================================
 ## Barplot graph
 library(ggplot2)
+library(tidyr)
 
 rm(list=ls())
 
@@ -328,10 +329,54 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 # Filtering data and getting the log of the values.
 data = subset(df, abond >= thres & regne %in% selected_classes)
 data = drop_na(data[c("regne","genre","ind","cat","abond")])
-data$abond = log(data$abond)
 data = droplevels(data[order(data$abond, decreasing = T),])
-data$genre = factor(data$genre, levels = unique(data$genre))
 
+# Getting statistically different samples
+significant = c()
+for (class in levels(data$genre)){
+  control = subset(data, cat == "Controle" & genre == class)$abond
+  treated = subset(data, cat == "Colistine" & genre == class)$abond
+  if (length(control) >= 3 & length (treated) >= 3){
+    shapiro_C = (shapiro.test(control)[[2]] >= 0.05)
+    shapiro_T = (shapiro.test(treated)[[2]] >= 0.05)
+    if (shapiro_C & shapiro_T){
+      fisher = (var.test(control, treated)[[3]] >= 0.05)
+      if (fisher){
+        difference_test = (t.test(control, treated)[[3]] <= 0.05)
+        significant = c(significant, difference_test)
+      }else if (length(control)>= 20 & length(treated)>=20){
+        difference_test = (t.test(control, treated)[[3]] <= 0.05)
+        significant = c(significant, difference_test)
+      }else{
+        difference_test = (t.test(control, treated, var.equal=F)[[3]] <= 0.05)
+        significant = c(significant, difference_test)
+      }
+    }else if (length(control) >= 30 & length(treated) >= 30){
+      difference_test = (t.test(control, treated)[[3]] <= 0.05)
+      significant = c(significant, difference_test)
+    }else{
+      difference_test = (wilcox.test(control, treated)[[3]] <= 0.05)
+      significant = c(significant, difference_test)
+    }  
+  }else{
+    significant = c(significant, 2)
+  }
+}
+
+data$genre = as.character(data$genre)
+tmp_levels = unique(data$genre)
+for (index in 1:length(significant)){
+  print(index)
+  if (significant[index] == 1){
+    print(tmp_levels[index])
+    rows_to_edit = which(data$genre == as.character(tmp_levels[index]))
+    print(rows_to_edit)
+    data$genre[rows_to_edit] = paste("(*)",tmp_levels[index])
+  }
+}
+
+data$genre = factor(data$genre, levels = unique(data$genre))
+data$abond = log(data$abond)
 ggplot(data, aes(abond, genre)) + 
   geom_boxplot(fill="slateblue", alpha=0.2)+
   scale_y_discrete(expand=c(0, 0))+
