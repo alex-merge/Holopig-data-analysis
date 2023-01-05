@@ -1,0 +1,94 @@
+---
+title: "Visualisation of taxonomic datas"
+output: html_notebook
+---
+## I. Barplot of reigns 
+### 1) Creation of a data frame with the relative abundance of each reign
+The csv file treated to seperate the taxonomic informations is red. 
+A loop is created to merge all the line of the same reign and sum their relative abundances.
+
+```{r}
+#reading the csv file
+df = read.csv(file="../refined_data/taxonomic_abondance.csv",
+              sep=";")
+
+#creation of a new column in df with the mean relative abundance of each lign
+moyenne = data.frame(mean = mean(c(t(df[1,-(1:7)]))))
+for (var in c(2:dim.data.frame(df)[1])){
+  moyenne = rbind (moyenne, mean(c(t(df[var,-(1:7)]))))
+}
+df = cbind(df, moyenne)
+
+#initialisation of dat_regne and the counter test.
+dat_regne= data.frame("NA" = 0)
+test=0
+
+for (var in c(1:dim.data.frame(df)[1])){
+#if there is no reign information, the lign is ignore to avoid errors.
+  if (is.na(df[var,]$regne)){
+    dat_regne[2,1]=as.integer(dat_regne[2,1]) + df[var,]$mean
+    test=0
+    next
+  }
+#loop on the columns of dat_regne to check if it has been already encountered in the data frame.
+  for (var2 in c(1:dim.data.frame(dat_regne)[2])){
+# if the reign already exists in dat_regne, the relative abundance is added.
+    if (df[var,]$regne == dat_regne[1,var2]){
+      dat_regne[2,var2]=as.integer(dat_regne[2,var2]) + df[var,]$mean  
+      test=0
+      break
+    }
+    else {test=1}
+  } 
+#if the reign is new, a new column is added with the reign and the relative abundace of the lign.
+  if (test==1){
+    dat_regne= cbind(dat_regne, c(df[var,]$regne , df[var,]$mean))
+    colnames(dat_regne[var2])= df[var,]$regne
+    test = 0
+  }
+}
+
+```
+
+
+### 2) Barplot
+
+```{r}
+# Load ggplot2
+  library(ggplot2)
+
+#new data frame with transposed reigns and abundances
+data <- data.frame(
+  regne=c(t(dat_regne[1,])) ,  
+  value=c(t(dat_regne[2,]))
+)
+
+# Barplot
+ggplot(data, aes(x=regne, y=value)) + 
+  geom_bar(stat = "identity") +
+  coord_flip()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
