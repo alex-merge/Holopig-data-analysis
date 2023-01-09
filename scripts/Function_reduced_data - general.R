@@ -22,14 +22,23 @@ category = c("Control", "Colistine", "Control", "Control", "Control", "Control",
              "Colistine", "Colistine", "Colistine", "Colistine")
 data_cat_sample = data.frame(name_sample, category)
 
+
 ## COLLECTING THE FILE NAMES OF SPLIT TABLE ##
 directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
 
+
 ## WORK ON PREVIOULY SPLIT FILE ##
 # Initializing table for the for-loop
-columns = c("Seed_ortholog", name_sample, "Sum")
+columns = c("code", "Description", name_sample, "Sum")
 functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
+
+columns_reads = c(name_sample)
+rows_reads = c(directory)
+nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
+colnames(nb_reads_pig) = columns_reads
+rownames(nb_reads_pig) = rows_reads
+
 
 for (file in directory) {
   
@@ -37,30 +46,51 @@ for (file in directory) {
   filepath = paste("refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
+  # Counter of total reads for each pig in each file (no filter)
+  for (name_pig in name_sample) {
+    sum_reads_pig = sum(data[, colnames(data)[colnames(data) == name_pig]])
+    nb_reads_pig[file, name_pig] = sum_reads_pig
+  }   ######Problème avec le fichier Annot_20 pas de donnes renseignees pourtant il est lu ###########
+  
   # If non-empty, keeping columns of interest and creating a new dataframe
-  data_mod <- subset(data, seed_ortholog != "-" & seed_ortholog != "")
-  functions_table_file = data.frame(data_mod$seed_ortholog, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.seed_ortholog'] <- 'Description'
+  data_mod = subset(data, seed_ortholog != "-" & seed_ortholog != "")
+  functions_table_file = data.frame(data_mod$seed_ortholog, data_mod$Description, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.seed_ortholog'] <- 'Code'
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.Description'] <- 'Description'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
-  functions_table_file$Description = gsub('(^[[:digit:]]*.)', '', functions_table_file$Description)
-  functions_file = separate(functions_table_file, Description, into = name, sep = ".")
+  functions_descp_table_file = functions_table_file %>% separate(col = "Code", into = c("waste", "code"), extra = "merge") %>% select(-c(waste))
   
   # If empty or with no functional correspondence, putting in another file to keep trace of the non-analysed data
-  # data_useless <- subset(data, seed_ortholog == "-" & seed_ortholog == "")
-  # write.table(data_useless,
-  #             file = "refined_data/useless_metabolics_functions.csv",
-  #             row.names = FALSE, col.names = TRUE, sep=";")
+  data_useless <- subset(data, seed_ortholog == "-" | seed_ortholog == "")
+  write.table(data_useless,
+            append = TRUE,
+            file = "refined_data/useless_metabolics_functions.csv",
+            row.names = FALSE, col.names = TRUE, sep = ";", dec = ".")
   
-  # # Summing columns by the name of the function in a dataframe
-  # functions_light_table = aggregate(functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'Description']], list(functions_table_file$Description), FUN=sum)
-  # colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
-  # 
-  # # Merging dataframes one after the other
-  # functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
-  # functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Description']], list(functions_general_table$Description), FUN=sum)
-  # colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'Description'
-  # 
+  # Summing columns by the name of the function in a dataframe, dropping code column
+  functions_light_table = functions_descp_table_file %>% select(-c(code)) 
+  functions_light_table = aggregate(x = functions_light_table[, colnames(functions_light_table)[colnames(functions_light_table) != 'Description' ]],list(functions_light_table$Description), FUN=sum)
+  colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
+  
+  ##############Actuellement à travailler ##################
+  
+  # Regrouping codes by the name of the function in a dataframe
+  #functions_code = aggregate(code ~ Description, functions_descp_table_file, c)
+  functions_code = functions_descp_table_file %>% select(code,Description) %>% group_by(Description)
+  
+  ############################################################
+  
+  
+  # Merging dataframes with read numbers one after the other
+  functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
+  functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Description']], list(functions_general_table$Description), FUN=sum)
+  colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'Description'
+  
 }
+
+functions_codes_general = merge(functions_general_table, functions_code, all = TRUE)
+
+#hist(functions_general_table$Sum, breaks = 10000)
 
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Calculating the relative abundance
