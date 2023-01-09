@@ -25,9 +25,9 @@ data_cat_sample = data.frame(name_sample, category)
 ## COLLECTING THE FILE NAMES OF SPLIT TABLE ##
 directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
 
-## WORK ON EVERY SPLIT FILE ##
+## WORK ON PREVIOULY SPLIT FILE ##
 # Initializing table for the for-loop
-columns = c("Description", name_sample, "Sum")
+columns = c("Seed_ortholog", name_sample, "Sum")
 functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
 
@@ -37,28 +37,37 @@ for (file in directory) {
   filepath = paste("refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
-  # Keeping columns of interest and creating a new dataframe
-  functions_table_file = data.frame(data$Description, data[, grepl(".featureCounts.tsv$", names(data))], data$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data.Description'] <- 'Description'
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data.sum'] <- 'Sum'
+  # If non-empty, keeping columns of interest and creating a new dataframe
+  data_mod <- subset(data, seed_ortholog != "-" & seed_ortholog != "")
+  functions_table_file = data.frame(data_mod$seed_ortholog, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.seed_ortholog'] <- 'Description'
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
+  functions_table_file$Description = gsub('(^[[:digit:]]*.)', '', functions_table_file$Description)
+  functions_file = separate(functions_table_file, Description, into = name, sep = ".")
   
-  # Summing columns by the description of the function in a dataframe
-  functions_light_table = aggregate(functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'Description']], list(functions_table_file$Description), FUN=sum)
-  colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
+  # If empty or with no functional correspondence, putting in another file to keep trace of the non-analysed data
+  # data_useless <- subset(data, seed_ortholog == "-" & seed_ortholog == "")
+  # write.table(data_useless,
+  #             file = "refined_data/useless_metabolics_functions.csv",
+  #             row.names = FALSE, col.names = TRUE, sep=";")
   
-  # Merging dataframe from the others files and the actual file
-  functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
-  functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Description']], list(functions_general_table$Description), FUN=sum)
-  colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'Description'
-  
+  # # Summing columns by the name of the function in a dataframe
+  # functions_light_table = aggregate(functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'Description']], list(functions_table_file$Description), FUN=sum)
+  # colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
+  # 
+  # # Merging dataframes one after the other
+  # functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
+  # functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Description']], list(functions_general_table$Description), FUN=sum)
+  # colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'Description'
+  # 
 }
 
-## TREATMENT ON ALL THE FUNCTIONS
+## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Calculating the relative abundance
-functions_general_abdrev = functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Sum']] #Exclusion of the sum column (useless)
+functions_general_abdrev = functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Sum']] #Exclusion of the sum column (useless in the new dataframe)
 
 for (name in name_sample){
-  functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row
+  functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row and add it to the new dataframe
 }
 
 #Reshaping the data fot the heatmap
@@ -83,18 +92,16 @@ for (name_pig in name_sample) {
 ################################################################################
 par(mar=c(10,4,4,2))
 
-ggplot(reshaped_functions, aes(Pig_name, Description), fill= Relative_abundance) +
-  geom_tile()
 
 # Heatmap ggplot
-ggplot(reshaped_functions, aes(Pig_name,Description)) + 
-  geom_tile(aes(fill= Relative_abundance), colour = "white", size = 0.5) +
+ggplot(reshaped_functions, aes(Pig_name,Description,fill= Relative_abundance)) + 
+  geom_tile(colour = "black", size = 0.5) +
   scale_fill_distiller(palette = "Spectral",
                        limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance)),
                        direction = -1) +
   scale_y_discrete(expand=c(0, 0)) +
   scale_x_discrete(expand=c(0, 0)) +
-  labs(fill="Relative abundance", title = "Relative abundance of metabolic functions") +
+  labs(title = "Relative abundance of metabolic functions") +
   theme_grey(base_size=12) +
   theme(line = element_blank(),
         #axis.ticks.x = element_blank(),
@@ -108,10 +115,10 @@ ggplot(reshaped_functions, aes(Pig_name,Description)) +
         legend.title = element_text(face="bold", size = 15),
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
-        strip.text.x = element_text(face = "bold", size = 15)) +
-  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
-            scales = "free",
-            space = "free")
+        strip.text.x = element_text(face = "bold", size = 15))
+#  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
+#            scales = "free",
+#            space = "free")
 scale = 200
 ggsave(filename = "export/heatmap_metabolic_functions.png",
        width = 16*scale,
