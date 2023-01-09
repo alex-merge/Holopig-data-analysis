@@ -64,6 +64,13 @@ abundance_df = abundance_df[, c(dim(abundance_df)[2], 1:(dim(abundance_df)[2]-1)
 head(abundance_df)
 ```
 
+We then normalize the variables using the *scale* function of R.
+
+```{r}
+abundance_df_unnormalized = abundance_df
+abundance_df[9:42] = scale(abundance_df[9:42])
+```
+
 We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be agregated for each row and each sample which will lead to a 2649\*34 = 90066 rows (rows times number of samples).
 
 ```{r}
@@ -96,8 +103,14 @@ write.table(final_df,
             row.names = FALSE,
             sep=";")
 
-write.table(abundance_df, 
+write.table(abundance_df_unnormalized, 
             file = "../refined_data/complete_phylogenic_X_sample.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+write.table(abundance_df, 
+            file = "../refined_data/complete_phylogenic_X_sample_normalized.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
