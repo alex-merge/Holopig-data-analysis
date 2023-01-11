@@ -29,16 +29,19 @@ directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file na
 
 ## WORK ON PREVIOULY SPLIT FILE ##
 # Initializing table for the for-loop
-columns = c("code", "Description", name_sample, "Sum")
-functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
-colnames(functions_general_table) = columns
-
 columns_reads = c(name_sample)
 rows_reads = c(directory)
 nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
 colnames(nb_reads_pig) = columns_reads
 rownames(nb_reads_pig) = rows_reads
 
+columns = c("Description", name_sample, "Sum")
+functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
+colnames(functions_general_table) = columns
+
+columns_code = c("code", "Description")
+functions_code = data.frame(matrix(nrow = 0, ncol = length(columns_code)))
+colnames(functions_code) = columns_code
 
 for (file in directory) {
   
@@ -48,9 +51,9 @@ for (file in directory) {
   
   # Counter of total reads for each pig in each file (no filter)
   for (name_pig in name_sample) {
-    sum_reads_pig = sum(data[, colnames(data)[colnames(data) == name_pig]])
+    sum_reads_pig = sum(na.omit(data[, colnames(data)[colnames(data) == name_pig]]))
     nb_reads_pig[file, name_pig] = sum_reads_pig
-  }   ######Problème avec le fichier Annot_20 pas de donnes renseignees pourtant il est lu ###########
+  }
   
   # If non-empty, keeping columns of interest and creating a new dataframe
   data_mod = subset(data, seed_ortholog != "-" & seed_ortholog != "")
@@ -72,14 +75,10 @@ for (file in directory) {
   functions_light_table = aggregate(x = functions_light_table[, colnames(functions_light_table)[colnames(functions_light_table) != 'Description' ]],list(functions_light_table$Description), FUN=sum)
   colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
   
-  ##############Actuellement à travailler ##################
-  
   # Regrouping codes by the name of the function in a dataframe
-  #functions_code = aggregate(code ~ Description, functions_descp_table_file, c)
-  functions_code = functions_descp_table_file %>% select(code,Description) %>% group_by(Description)
-  
-  ############################################################
-  
+  functions_code_light = functions_descp_table_file %>% select(code, Description)
+  functions_code = merge(functions_code, functions_code_light, all = TRUE)
+  functions_code = aggregate(code ~ Description, functions_code, paste, collapse = ";")
   
   # Merging dataframes with read numbers one after the other
   functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
@@ -88,9 +87,11 @@ for (file in directory) {
   
 }
 
-functions_codes_general = merge(functions_general_table, functions_code, all = TRUE)
+# Summarazing all the data into one data frame (functions, code, nb of reads per function per pig)
+functions_codes_general = merge(functions_general_table, functions_code, all = TRUE, by = 'Description')
 
-#hist(functions_general_table$Sum, breaks = 10000)
+
+################################# Next work : 1-centrer reduire data, relative abundance 2-heatmap #############################
 
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Calculating the relative abundance
