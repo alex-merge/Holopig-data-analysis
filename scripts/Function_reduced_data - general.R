@@ -56,15 +56,19 @@ for (file in directory) {
   }
   
   # If non-empty, keeping columns of interest and creating a new dataframe
-  data_mod = subset(data, seed_ortholog != "-" & seed_ortholog != "")
+  data_mod = subset(data, seed_ortholog != "-" & seed_ortholog != "" & sum != 0)
   functions_table_file = data.frame(data_mod$seed_ortholog, data_mod$Description, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.seed_ortholog'] <- 'Code'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.Description'] <- 'Description'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
-  functions_descp_table_file = functions_table_file %>% separate(col = "Code", into = c("waste", "code"), extra = "merge") %>% select(-c(waste))
+  # Reshape code and description columns
+  functions_descp_table_file = functions_table_file %>% separate(col = "Code", into = c("waste", "code"), extra = "merge") %>% select(-c(waste)) # Keeping the second part of the name of ortholog
+  functions_descp_table_file$Description = gsub("^'|^-","",as.character(functions_descp_table_file$Description)) # Remove - or ' at the beggining of the description
+  functions_descp_table_file = functions_descp_table_file %>% extract(col = "Description", into = c("Description"), regex = "(.{1,60})") # Cutting description at 60 character max
+  functions_descp_table_file$Description = tolower(functions_descp_table_file$Description) # uniformization of the case of the description column
   
   # If empty or with no functional correspondence, putting in another file to keep trace of the non-analysed data
-  data_useless <- subset(data, seed_ortholog == "-" | seed_ortholog == "")
+  data_useless <- subset(data, seed_ortholog == "-" | seed_ortholog == "" | sum == 0)
   write.table(data_useless,
             append = TRUE,
             file = "refined_data/useless_metabolics_functions.csv",
@@ -91,54 +95,62 @@ for (file in directory) {
 functions_codes_general = merge(functions_general_table, functions_code, all = TRUE, by = 'Description')
 
 
-################################# Next work : 1-centrer reduire data, relative abundance 2-heatmap #############################
-
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Calculating the relative abundance
-functions_general_abdrev = functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Sum']] #Exclusion of the sum column (useless in the new dataframe)
+functions_rel_abd = functions_codes_general %>% select(-c(Sum, code)) #Exclusion of the sum column (useless in the new dataframe) and the description (names too long)
 
 for (name in name_sample){
-  functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row and add it to the new dataframe
+  functions_rel_abd[,name] = functions_codes_general[,name] / functions_codes_general$Sum #Dividing each cell by the sum of the row and add it to the new dataframe
 }
 
-#Reshaping the data fot the heatmap
-reshaped_functions = data.frame(matrix(nrow = 0, ncol = 3))
-colnames(reshaped_functions) = c("Description","Relative_abundance","Pig_name")
+# Normalized the relative abundance but the description is lost
+functions_rel_abd_normalized = scale(functions_rel_abd[,-1])
+functions_normalized = as.data.frame(cbind(functions_rel_abd$Description, functions_rel_abd_normalized)) # Adding description
+colnames(functions_normalized)[colnames(functions_normalized) == 'V1'] <- 'Description'
+functions_normalized_type = type.convert(functions_normalized, as.is = TRUE) # Previously, relative abundance columns were assimilate to characters
+
+# Add the category of the pig (colistin or control)
+transposed_cat_pig = t(data_cat_sample)
+dataframe_pig_cat = data.frame(transposed_cat_pig)
+names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
+dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
+
+
+
+##########################################HEATMAP##################################################
+
+
+#Reshaping the data for the heatmap
+reshaped_functions = data.frame(matrix(nrow = 0, ncol = 4))
+colnames(reshaped_functions) = c("Description","Relative_abundance_normalized","Pig_name","Category")
 
 for (name_pig in name_sample) {
- description = functions_general_abdrev$Description
- reshaped_functions_pig = data.frame(description, functions_general_abdrev[colnames(functions_general_abdrev) == name_pig])
+ description = functions_normalized_type$Description
+ reshaped_functions_pig = data.frame(description, functions_normalized_type[colnames(functions_normalized) == name_pig])
  reshaped_functions_pig['pig'] = rep(name_pig, length(description))
- colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] <- 'relative_abundance'
- reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("description","relative_abundance","pig"), by.x = c("Description","Relative_abundance","Pig_name"))
+ reshaped_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(description))
+ colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] = 'relative_abundance_normalized'
+ reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("description","relative_abundance_normalized","pig","category"), by.x = c("Description","Relative_abundance_normalized","Pig_name", "Category"))
 }
-
-
-
-# 
-# 
-# test = data.frame(animal,metabolic_function,relative_abundance,categorie_concerne)
 
 
 ################################################################################
-par(mar=c(10,4,4,2))
+# par(mar=c(10,4,4,2))
 
-
-# Heatmap ggplot
-ggplot(reshaped_functions, aes(Pig_name,Description,fill= Relative_abundance)) + 
-  geom_tile(colour = "black", size = 0.5) +
-  scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance)),
+ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance_normalized)) + 
+  geom_tile(colour = "white", size = 0.5) +
+  scale_fill_distiller(palette = "Spectral", 
+                       limits = c(min(reshaped_functions$Relative_abundance_normalized), max(reshaped_functions$Relative_abundance_normalized )),
                        direction = -1) +
-  scale_y_discrete(expand=c(0, 0)) +
-  scale_x_discrete(expand=c(0, 0)) +
-  labs(title = "Relative abundance of metabolic functions") +
-  theme_grey(base_size=12) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Normalized Relative Abundance", title = "Relative Abundance of the functions by pig")+
+  theme_grey(base_size=12)+
   theme(line = element_blank(),
-        #axis.ticks.x = element_blank(),
-        #axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
         axis.text.y = element_text(face="bold.italic"),
-        #axis.title.x = element_blank(),
+        axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         panel.border=element_blank(),
         legend.text=element_text(face="bold", size = 15),
@@ -146,21 +158,56 @@ ggplot(reshaped_functions, aes(Pig_name,Description,fill= Relative_abundance)) +
         legend.title = element_text(face="bold", size = 15),
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
-        strip.text.x = element_text(face = "bold", size = 15))
-#  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
-#            scales = "free",
-#            space = "free")
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(#rows = vars(data$regne),
+             cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistine"))),
+             scales = "free",
+             space = "free",
+             labeller = )
 scale = 200
-ggsave(filename = "export/heatmap_metabolic_functions.png",
+ggsave(filename = "export/HM_functions.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
        dpi=200)
 
+# # Heatmap ggplot
+# ggplot(reshaped_functions, aes(Pig_name,Description,fill= category)) + 
+#   geom_tile(colour = "black", size = 0.5) +
+#   scale_fill_distiller(palette = "Spectral",
+#                        limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance)),
+#                        direction = -1) +
+#   scale_y_discrete(expand=c(0, 0)) +
+#   scale_x_discrete(expand=c(0, 0)) +
+#   labs(title = "Relative abundance of metabolic functions") +
+#   theme_grey(base_size=12) +
+#   theme(line = element_blank(),
+#         #axis.ticks.x = element_blank(),
+#         #axis.text.x = element_blank(),
+#         axis.text.y = element_text(face="bold.italic"),
+#         #axis.title.x = element_blank(),
+#         axis.title.y = element_blank(),
+#         panel.border=element_blank(),
+#         legend.text=element_text(face="bold", size = 15),
+#         plot.title = element_text(face="bold", size = 25),
+#         legend.title = element_text(face="bold", size = 15),
+#         legend.key.size = unit(2, "cm"),
+#         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+#         strip.text.x = element_text(face = "bold", size = 15))
+# #  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
+# #            scales = "free",
+# #            space = "free")
+# scale = 200
+# ggsave(filename = "export/heatmap_metabolic_functions.png",
+#        width = 16*scale,
+#        height = 18*scale,
+#        units = "px",
+#        dpi=200)
+
 
 # Heatmap
-ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) +
-  geom_tile()
+# ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) +
+#   geom_tile()
 #   
 #   
 #   geom_tile(colour = "white", size = 0.5)+
