@@ -166,8 +166,7 @@ ggplot(data, aes(ind, genre, fill= abond)) +
   facet_grid(rows = vars(data$regne), 
              cols = vars(factor(data$cat, levels = c("Controle", "Colistine"))),
              scales = "free",
-             space = "free",
-             labeller = )
+             space = "free")
 scale = 200
 ggsave(filename = "export/HM_taxo_complete(complete_csv).png",
        width = 16*scale,

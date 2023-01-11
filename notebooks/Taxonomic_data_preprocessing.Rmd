@@ -113,13 +113,13 @@ write.table(final_df_normalized,
             row.names = FALSE,
             sep=";")
 
-write.table(abundance_df, 
+write.table(abundance_df_normalized, 
             file = "../refined_data/complete_phylogenic_X_sample_normalized.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
 
-write.table(abundance_df_normalized, 
+write.table(abundance_df, 
             file = "../refined_data/complete_phylogenic_X_sample.csv",
             col.names = TRUE,
             row.names = FALSE,
