@@ -1,0 +1,152 @@
+---
+title: "Taxonomic data analysis"
+output: html_notebook
+---
+
+# Taxonomic data analysis
+
+## Loading the preprocessed dataset (normalized)
+
+```{r}
+data = read.csv(file="../refined_data/complete_taxonomic_abundance.csv",
+                sep=";",
+                stringsAsFactors = TRUE,
+                na.strings = "None")
+data$ind = as.factor(data$ind)
+head(data)
+```
+
+## Heatmap
+
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+library(tidyr)
+```
+
+First, we filter data by class and an abundance threshold.
+
+```{r}
+# Threshold 
+thres = 0.001 
+
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, abond >= thres & kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+# Uncomment the following line to get the log of the abundance
+#filtered_data$abond = log(filtered_data$abond)
+
+head(filtered_data)
+```
+
+Only those columns ar necessary in order to make the heatmap for the *genre* model.
+
+### Unnormalized version
+
+```{r}
+ggplot(filtered_data, aes(ind, genre, fill= abond)) + 
+  geom_tile(colour = "white", size = 0.5)+
+  scale_fill_distiller(palette = "Spectral", # Setting scale's palette
+                       #limits = c(min(filtered_data$abond), # Setting scale limits
+                        #          max(filtered_data$abond)),
+                       direction = -1)+ # Setting direction of the palette
+  scale_y_discrete(expand=c(0, 0))+ # Removing blank space between data and Y axis
+  scale_x_discrete(expand=c(0, 0))+ # Same but for X axis
+  labs(fill="Unnormalized relative abundance", # Setting legend and title name
+       title = "Genre relative abundance across samples")+
+  theme_grey(base_size=12)+ # Setting the base font size
+  theme(line = element_blank(), # Removing the lines in between the boxes
+        axis.ticks.x = element_blank(), # Removing ticks on X axis
+        axis.text.x = element_blank(), # Removing X labels
+        axis.text.y = element_text(face="bold.italic"), # Setting Y labels to bold
+        axis.title.x = element_blank(), # Removing X axis title
+        axis.title.y = element_blank(), # Removing Y axis title
+        panel.border=element_blank(), # Removing space between figure and panel
+        legend.text=element_text(face="bold", size = 15), # Customizing legend font
+        plot.title = element_text(face="bold", size = 25), # Same with main title
+        legend.title = element_text(face="bold", size = 15), # Same with legend
+        legend.key.size = unit(2, "cm"), # Setting the legend scale
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             cols = vars(factor(filtered_data$cat, 
+                                levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+While this looks awfull in this notebook, the exported image is fine. We then export the image :
+
+```{r}
+scale = 200 # Set the scale for the exported image
+
+ggsave(filename = "../export/HM_taxonomy_unnormalized.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+### Normalized version
+
+First we need to normalize the data
+
+```{r}
+# Threshold 
+thres = 0.001 
+
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, abond >= thres & kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+filtered_data$abond = scale(filtered_data$abond)
+
+head(filtered_data)
+```
+
+```{r}
+ggplot(filtered_data, aes(ind, genre, fill= abond)) + 
+  geom_tile(colour = "white", size = 0.5)+
+  scale_fill_distiller(palette = "Spectral", # Setting scale's palette
+                       #limits = c(min(filtered_data$abond), # Setting scale limits
+                        #          max(filtered_data$abond)),
+                       direction = -1)+ # Setting direction of the palette
+  scale_y_discrete(expand=c(0, 0))+ # Removing blank space between data and Y axis
+  scale_x_discrete(expand=c(0, 0))+ # Same but for X axis
+  labs(fill="Normalized relative abundance", # Setting legend and title name
+       title = "Genre relative abundance across samples")+
+  theme_grey(base_size=12)+ # Setting the base font size
+  theme(line = element_blank(), # Removing the lines in between the boxes
+        axis.ticks.x = element_blank(), # Removing ticks on X axis
+        axis.text.x = element_blank(), # Removing X labels
+        axis.text.y = element_text(face="bold.italic"), # Setting Y labels to bold
+        axis.title.x = element_blank(), # Removing X axis title
+        axis.title.y = element_blank(), # Removing Y axis title
+        panel.border=element_blank(), # Removing space between figure and panel
+        legend.text=element_text(face="bold", size = 15), # Customizing legend font
+        plot.title = element_text(face="bold", size = 25), # Same with main title
+        legend.title = element_text(face="bold", size = 15), # Same with legend
+        legend.key.size = unit(2, "cm"), # Setting the legend scale
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             cols = vars(factor(filtered_data$cat, 
+                                levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+```{r}
+scale = 200 # Set the scale for the exported image
+
+ggsave(filename = "../export/HM_taxonomy_normalized.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```

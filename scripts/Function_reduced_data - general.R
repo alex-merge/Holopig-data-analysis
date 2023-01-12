@@ -1,5 +1,9 @@
 # Library
 library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(RColorBrewer)
 
 ## MAKING ASSOCIATION BETWEEN THE SAMPLE AND ITS CONDITION ##
 name_sample = c()
@@ -18,14 +22,26 @@ category = c("Control", "Colistine", "Control", "Control", "Control", "Control",
              "Colistine", "Colistine", "Colistine", "Colistine")
 data_cat_sample = data.frame(name_sample, category)
 
+
 ## COLLECTING THE FILE NAMES OF SPLIT TABLE ##
 directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
 
-## WORK ON EVERY SPLIT FILE ##
+
+## WORK ON PREVIOULY SPLIT FILE ##
 # Initializing table for the for-loop
+columns_reads = c(name_sample)
+rows_reads = c(directory)
+nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
+colnames(nb_reads_pig) = columns_reads
+rownames(nb_reads_pig) = rows_reads
+
 columns = c("Description", name_sample, "Sum")
 functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
+
+columns_code = c("code", "Description")
+functions_code = data.frame(matrix(nrow = 0, ncol = length(columns_code)))
+colnames(functions_code) = columns_code
 
 for (file in directory) {
   
@@ -33,103 +49,165 @@ for (file in directory) {
   filepath = paste("refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
-  # Keeping columns of interest and creating a new dataframe
-  functions_table_file = data.frame(data$Description, data[, grepl(".featureCounts.tsv$", names(data))], data$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data.Description'] <- 'Description'
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data.sum'] <- 'Sum'
+  # Counter of total reads for each pig in each file (no filter)
+  for (name_pig in name_sample) {
+    sum_reads_pig = sum(na.omit(data[, colnames(data)[colnames(data) == name_pig]]))
+    nb_reads_pig[file, name_pig] = sum_reads_pig
+  }
   
-  # Summing columns by the description of the function in a dataframe
-  functions_light_table = aggregate(functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'Description']], list(functions_table_file$Description), FUN=sum)
+  # If non-empty, keeping columns of interest and creating a new dataframe
+  data_mod = subset(data, seed_ortholog != "-" & seed_ortholog != "" & sum != 0)
+  functions_table_file = data.frame(data_mod$seed_ortholog, data_mod$Description, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.seed_ortholog'] <- 'Code'
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.Description'] <- 'Description'
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
+  # Reshape code and description columns
+  functions_descp_table_file = functions_table_file %>% separate(col = "Code", into = c("waste", "code"), extra = "merge") %>% select(-c(waste)) # Keeping the second part of the name of ortholog
+  functions_descp_table_file$Description = gsub("^'|^-","",as.character(functions_descp_table_file$Description)) # Remove - or ' at the beggining of the description
+  functions_descp_table_file = functions_descp_table_file %>% extract(col = "Description", into = c("Description"), regex = "(.{1,60})") # Cutting description at 60 character max
+  functions_descp_table_file$Description = tolower(functions_descp_table_file$Description) # uniformization of the case of the description column
+  
+  # If empty or with no functional correspondence, putting in another file to keep trace of the non-analysed data
+  data_useless <- subset(data, seed_ortholog == "-" | seed_ortholog == "" | sum == 0)
+  write.table(data_useless,
+            append = TRUE,
+            file = "refined_data/useless_metabolics_functions.csv",
+            row.names = FALSE, col.names = TRUE, sep = ";", dec = ".")
+  
+  # Summing columns by the name of the function in a dataframe, dropping code column
+  functions_light_table = functions_descp_table_file %>% select(-c(code)) 
+  functions_light_table = aggregate(x = functions_light_table[, colnames(functions_light_table)[colnames(functions_light_table) != 'Description' ]],list(functions_light_table$Description), FUN=sum)
   colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'Description'
   
-  # Merging dataframe from the others files and the actual file
+  # Regrouping codes by the name of the function in a dataframe
+  functions_code_light = functions_descp_table_file %>% select(code, Description)
+  functions_code = merge(functions_code, functions_code_light, all = TRUE)
+  functions_code = aggregate(code ~ Description, functions_code, paste, collapse = ";")
+  
+  # Merging dataframes with read numbers one after the other
   functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
   functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Description']], list(functions_general_table$Description), FUN=sum)
   colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'Description'
   
 }
 
-## TREATMENT ON ALL THE FUNCTIONS
+# Summarazing all the data into one data frame (functions, code, nb of reads per function per pig)
+functions_codes_general = merge(functions_general_table, functions_code, all = TRUE, by = 'Description')
+
+
+## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Calculating the relative abundance
-functions_general_abdrev = functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'Sum']] #Exclusion of the sum column (useless)
+functions_rel_abd = functions_codes_general %>% select(-c(Sum, code)) #Exclusion of the sum column (useless in the new dataframe) and the description (names too long)
 
 for (name in name_sample){
-  functions_general_abdrev[,name] = functions_general_table[,name] / functions_general_table$Sum #Dividing each cell by the sum of the row
+  functions_rel_abd[,name] = functions_codes_general[,name] / functions_codes_general$Sum #Dividing each cell by the sum of the row and add it to the new dataframe
 }
 
-#inverse rows and columns
-functions_general_abdrev_inv = data.frame(t(functions_general_abdrev[-1]))
-colnames(functions_general_abdrev_inv) = functions_general_abdrev[, 1]
+# Normalized the relative abundance but the description is lost
+functions_rel_abd_normalized = scale(functions_rel_abd[,-1])
+functions_normalized = as.data.frame(cbind(functions_rel_abd$Description, functions_rel_abd_normalized)) # Adding description
+colnames(functions_normalized)[colnames(functions_normalized) == 'V1'] <- 'Description'
+functions_normalized_type = type.convert(functions_normalized, as.is = TRUE) # Previously, relative abundance columns were assimilate to characters
 
-## !! attention !!
-functions_general_cat = merge(functions_general_abdrev_inv, data_cat_sample, by=c('var1', 'var2'), all = TRUE)
-
-#metabolic_function = c()
-#animal = c()
-#relative_abundance = c()
-#categorie_concerne = c()
-#somme = c()
-
+# Add the category of the pig (colistin or control)
+transposed_cat_pig = t(data_cat_sample)
+dataframe_pig_cat = data.frame(transposed_cat_pig)
+names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
+dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
 
-# for (i in 1:(length(function_table)-2)){  # = nb colonne - 2
-#   
-#   verif_func = c()
-#   verif_pig =c()
-#   verif_sum = c()
-#   verif_animal = c()
-#   verif_categorie = c()
-#   
-# 
-#   for (j in 1:length(function_table[,i])){ # = nb ligne dans une colonne donnée
-#     #function_table[j,i] = function_table[j,i]/data$sum[j]
-#     
-#     #somme = c(somme, function_table$data.sum[j]) 
-#     #metabolic_function=c(metabolic_function, function_table$data.Description[j])
-#     #animal=c(animal,paste0("p",i))
-#     #relative_abundance=c(relative_abundance,function_table[j,i])
-#     #categorie_concerne = c(categorie_concerne,categorie[i])
-#     
-#     if (function_table$data.Description[j] %in% verif_func){
-#       posiO = match(function_table$data.Description[j],verif_func)
-#       verif_pig[posiO] =c(verif_pig[posiO] + function_table[j,i])
-#       verif_sum[posiO] =c(verif_sum[posiO] + function_table$data.sum[j])
-#       
-#     }
-#     else {
-#       verif_func = c(verif_func,function_table$data.Description[j])
-#       verif_pig =c(verif_pig,function_table[j,i])
-#       verif_sum = c(verif_sum,function_table$data.sum[j])
-#       verif_animal = c(verif_animal,paste0("p",i))
-#       verif_categorie = c(verif_c xdf ,categorie[i])
-#     }
-#   }
-#   verif_pig_relative = verif_pig / verif_sum# pas sûr que ce soit okk sur le jeu entier, à tester
-#   #somme = c(somme, verif_sum) 
-#   metabolic_function=c(metabolic_function, verif_func)
-#   animal=c(animal,verif_animal)
-#   relative_abundance=c(relative_abundance,verif_pig_relative)
-#   categorie_concerne = c(categorie_concerne,verif_categorie)
-#   
-# }
-# 
-# 
-# 
-# test = data.frame(animal,metabolic_function,relative_abundance,categorie_concerne)
+
+##########################################HEATMAP##################################################
+
+
+#Reshaping the data for the heatmap
+reshaped_functions = data.frame(matrix(nrow = 0, ncol = 4))
+colnames(reshaped_functions) = c("Description","Relative_abundance_normalized","Pig_name","Category")
+
+for (name_pig in name_sample) {
+ description = functions_normalized_type$Description
+ reshaped_functions_pig = data.frame(description, functions_normalized_type[colnames(functions_normalized) == name_pig])
+ reshaped_functions_pig['pig'] = rep(name_pig, length(description))
+ reshaped_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(description))
+ colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] = 'relative_abundance_normalized'
+ reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("description","relative_abundance_normalized","pig","category"), by.x = c("Description","Relative_abundance_normalized","Pig_name", "Category"))
+}
 
 
 ################################################################################
+# par(mar=c(10,4,4,2))
+
+ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance_normalized)) + 
+  geom_tile(colour = "white", size = 0.5) +
+  scale_fill_distiller(palette = "Spectral", 
+                       limits = c(min(reshaped_functions$Relative_abundance_normalized), max(reshaped_functions$Relative_abundance_normalized )),
+                       direction = -1) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Normalized Relative Abundance", title = "Relative Abundance of the functions by pig")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(face="bold.italic"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(#rows = vars(data$regne),
+             cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistine"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = "export/HM_functions.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+
+# # Heatmap ggplot
+# ggplot(reshaped_functions, aes(Pig_name,Description,fill= category)) + 
+#   geom_tile(colour = "black", size = 0.5) +
+#   scale_fill_distiller(palette = "Spectral",
+#                        limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance)),
+#                        direction = -1) +
+#   scale_y_discrete(expand=c(0, 0)) +
+#   scale_x_discrete(expand=c(0, 0)) +
+#   labs(title = "Relative abundance of metabolic functions") +
+#   theme_grey(base_size=12) +
+#   theme(line = element_blank(),
+#         #axis.ticks.x = element_blank(),
+#         #axis.text.x = element_blank(),
+#         axis.text.y = element_text(face="bold.italic"),
+#         #axis.title.x = element_blank(),
+#         axis.title.y = element_blank(),
+#         panel.border=element_blank(),
+#         legend.text=element_text(face="bold", size = 15),
+#         plot.title = element_text(face="bold", size = 25),
+#         legend.title = element_text(face="bold", size = 15),
+#         legend.key.size = unit(2, "cm"),
+#         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+#         strip.text.x = element_text(face = "bold", size = 15))
+# #  facet_grid(cols = vars(factor(category, levels = c("Control", "Colistine"))),
+# #            scales = "free",
+# #            space = "free")
+# scale = 200
+# ggsave(filename = "export/heatmap_metabolic_functions.png",
+#        width = 16*scale,
+#        height = 18*scale,
+#        units = "px",
+#        dpi=200)
 
 
-# Heatmap ggplot
-ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) + 
-   #geom_tile()
-
-
-
-# # Heatmap 
-# ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) + 
-#   #geom_tile()
+# Heatmap
+# ggplot(test, aes(animal,metabolic_function, fill= relative_abundance)) +
+#   geom_tile()
 #   
 #   
 #   geom_tile(colour = "white", size = 0.5)+
