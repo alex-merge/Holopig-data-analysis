@@ -24,6 +24,10 @@ library(RColorBrewer)
 library(tidyr)
 ```
 
+### Raw relative abundance
+
+In this section, we will take the raw relative abundance.
+
 First, we filter data by class and an abundance threshold.
 
 ```{r}
@@ -33,15 +37,10 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
-# Uncomment the following line to get the log of the abundance
-#filtered_data$abond = log(filtered_data$abond)
-
 head(filtered_data)
 ```
 
 Only those columns ar necessary in order to make the heatmap for the *genre* model.
-
-### Unnormalized version
 
 ```{r}
 ggplot(filtered_data, aes(ind, genre, fill= abond)) + 
@@ -52,7 +51,7 @@ ggplot(filtered_data, aes(ind, genre, fill= abond)) +
                        direction = -1)+ # Setting direction of the palette
   scale_y_discrete(expand=c(0, 0))+ # Removing blank space between data and Y axis
   scale_x_discrete(expand=c(0, 0))+ # Same but for X axis
-  labs(fill="Unnormalized relative abundance", # Setting legend and title name
+  labs(fill="Relative abundance (%)", # Setting legend and title name
        title = "Genre relative abundance across samples")+
   theme_grey(base_size=12)+ # Setting the base font size
   theme(line = element_blank(), # Removing the lines in between the boxes
@@ -80,7 +79,67 @@ While this looks awfull in this notebook, the exported image is fine. We then ex
 ```{r}
 scale = 200 # Set the scale for the exported image
 
-ggsave(filename = "../export/HM_taxonomy_unnormalized.png",
+ggsave(filename = "../export/HM_taxonomy.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+### Log of the relative abundance
+
+In this section, we will take the log of the relative abundance in order to see more subtile difference across samples.
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+filtered_data$abond = log(filtered_data$abond)
+
+head(filtered_data)
+```
+
+```{r}
+ggplot(filtered_data, aes(ind, genre, fill= abond)) + 
+  geom_tile(colour = "white", size = 0.5)+
+  scale_fill_distiller(palette = "Spectral", # Setting scale's palette
+                       #limits = c(min(filtered_data$abond), # Setting scale limits
+                        #          max(filtered_data$abond)),
+                       direction = -1)+ # Setting direction of the palette
+  scale_y_discrete(expand=c(0, 0))+ # Removing blank space between data and Y axis
+  scale_x_discrete(expand=c(0, 0))+ # Same but for X axis
+  labs(fill="Log of the relative abundance", # Setting legend and title name
+       title = "Genre relative abundance across samples")+
+  theme_grey(base_size=12)+ # Setting the base font size
+  theme(line = element_blank(), # Removing the lines in between the boxes
+        axis.ticks.x = element_blank(), # Removing ticks on X axis
+        axis.text.x = element_blank(), # Removing X labels
+        axis.text.y = element_text(face="bold.italic"), # Setting Y labels to bold
+        axis.title.x = element_blank(), # Removing X axis title
+        axis.title.y = element_blank(), # Removing Y axis title
+        panel.border=element_blank(), # Removing space between figure and panel
+        legend.text=element_text(face="bold", size = 15), # Customizing legend font
+        plot.title = element_text(face="bold", size = 25), # Same with main title
+        legend.title = element_text(face="bold", size = 15), # Same with legend
+        legend.key.size = unit(2, "cm"), # Setting the legend scale
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             cols = vars(factor(filtered_data$cat, 
+                                levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+Finally, we export the graph.
+
+```{r}
+scale = 200 # Set the scale for the exported image
+
+ggsave(filename = "../export/HM_taxonomy_(log).png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
@@ -100,7 +159,7 @@ filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
 library(caret)
 process = preProcess(as.data.frame(filtered_data$abond), method=c("range"))
-filtered_data$abond = predict(process, as.data.frame(filtered_data$abond))
+filtered_data$abond = predict(process, as.data.frame(filtered_data$abond))[,1]
 
 #filtered_data$abond = scale(filtered_data$abond)
 
@@ -142,7 +201,175 @@ ggplot(filtered_data, aes(ind, genre, fill= abond)) +
 ```{r}
 scale = 200 # Set the scale for the exported image
 
-ggsave(filename = "../export/HM_taxonomy_normalized.png",
+ggsave(filename = "../export/HM_taxonomy_(normalized).png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+## Boxplot
+
+### Raw relative abundance
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
+                                               decreasing = T),])
+filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+
+head(filtered_data)
+```
+
+```{r}
+ggplot(filtered_data, aes(abond, genre, fill = cat)) + 
+  geom_boxplot()+
+  scale_y_discrete(expand=c(0, 0))+
+  #scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Relative abundance", title = "Relative abundance across samples")+
+  xlab("Relative abundance (%)")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        #axis.ticks.x = element_blank(),
+        axis.text.x = element_text(face="bold"),
+        axis.text.y = element_text(face="bold.italic"),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             #cols = vars(factor(data$cat, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+And once again we export the figure.
+
+```{r}
+scale = 200
+ggsave(filename = "../export/BP_taxonomy.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+### Log of the relative abundance
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
+                                               decreasing = T),])
+filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+
+filtered_data$abond = log(filtered_data$abond)
+
+head(filtered_data)
+```
+
+We generate the figure.
+
+```{r}
+ggplot(filtered_data, aes(abond, genre, fill = cat)) + 
+  geom_boxplot()+
+  scale_y_discrete(expand=c(0, 0))+
+  #scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Relative abundance", title = "Relative abundance across samples")+
+  xlab("Log of the relative abundance")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        #axis.ticks.x = element_blank(),
+        axis.text.x = element_text(face="bold"),
+        axis.text.y = element_text(face="bold.italic"),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             #cols = vars(factor(data$cat, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+```{r}
+scale = 200
+ggsave(filename = "../export/BP_taxonomy_(log).png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+### Normalized version
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes)
+filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
+                                               decreasing = T),])
+filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+
+library(caret)
+process = preProcess(as.data.frame(filtered_data$abond), method=c("range"))
+filtered_data$abond = predict(process, as.data.frame(filtered_data$abond))[,1]
+
+head(filtered_data)
+```
+
+```{r}
+ggplot(filtered_data, aes(abond, genre, fill = cat)) + 
+  geom_boxplot()+
+  scale_y_discrete(expand=c(0, 0))+
+  #scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Relative abundance", title = "Relative abundance across samples")+
+  xlab("Normalized relative abundance (%)")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        #axis.ticks.x = element_blank(),
+        axis.text.x = element_text(face="bold"),
+        axis.text.y = element_text(face="bold.italic"),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(rows = vars(filtered_data$kingdom), 
+             #cols = vars(factor(data$cat, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free")
+```
+
+```{r}
+scale = 200
+ggsave(filename = "../export/BP_taxonomy_(normalized).png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
