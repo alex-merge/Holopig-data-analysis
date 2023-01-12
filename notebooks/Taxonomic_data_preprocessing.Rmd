@@ -10,7 +10,7 @@ output: html_notebook
 First we load the data into a data.frame called **raw_df**.
 
 ```{r}
-raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.csv",
+raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.tsv",
                   sep="\t",
                   na.strings = "None")
 head(raw_df)
@@ -107,13 +107,13 @@ write.table(final_df,
             sep=";")
 
 write.table(abundance_df, 
-            file = "../refined_data/filtered_phylogenic_X_sample.csv",
+            file = "../refined_data/filtered_taxonomy_X_sample.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
 
 write.table(unfiltered_abundance, 
-            file = "../refined_data/complete_phylogenic_X_sample.csv",
+            file = "../refined_data/complete_taxonomy_X_sample.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")

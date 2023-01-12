@@ -333,8 +333,8 @@ data = droplevels(data[order(data$abond, decreasing = T),])
 # Getting statistically different samples
 significant = c()
 for (class in levels(data$genre)){
-  control = subset(data, cat == "Controle" & genre == class)$abond
-  treated = subset(data, cat == "Colistine" & genre == class)$abond
+  control = subset(data, cat == "Control" & genre == class)$abond
+  treated = subset(data, cat == "Colistin" & genre == class)$abond
   if (length(control) >= 3 & length (treated) >= 3){
     shapiro_C = (shapiro.test(control)[[2]] >= 0.05)
     shapiro_T = (shapiro.test(treated)[[2]] >= 0.05)
