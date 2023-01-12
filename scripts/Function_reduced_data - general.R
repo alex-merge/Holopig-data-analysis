@@ -159,8 +159,7 @@ ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance_n
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
         strip.text.x = element_text(face = "bold", size = 15))+
-  facet_grid(#rows = vars(data$regne),
-             cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistine"))),
+  facet_grid(cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistine"))),
              scales = "free",
              space = "free",
              labeller = )
