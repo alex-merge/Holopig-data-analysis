@@ -5,7 +5,7 @@ output: html_notebook
 
 # Taxonomic data analysis
 
-## Loading the preprocessed dataset (normalized)
+## Loading the preprocessed dataset
 
 ```{r}
 data = read.csv(file="../refined_data/filtered_taxonomic_abundance.csv",
@@ -29,8 +29,10 @@ diff_test = function(data){
   significant = c()
   for (class in levels(data$genre)){
     control = subset(data, cat == "Control" & genre == class)$abond
+    control[control == 0] = NA
     treated = subset(data, cat == "Colistin" & genre == class)$abond
-    if (length(control) >= 3 & length (treated) >= 3){
+    treated[treated == 0] = NA
+    if (length(control) >= 3 & length(treated) >= 3){
       shapiro_C = (shapiro.test(control)[[2]] >= 0.05)
       shapiro_T = (shapiro.test(treated)[[2]] >= 0.05)
       if (shapiro_C & shapiro_T){
@@ -56,6 +58,8 @@ diff_test = function(data){
       significant = c(significant, 2)
     }
   }
+  
+  print(significant)
   
   # Adding "(*)" to statistically different samples
   data$genre = as.character(data$genre)
@@ -94,6 +98,9 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 head(filtered_data)
 ```
@@ -155,6 +162,9 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
+
 filtered_data$abond = log(filtered_data$abond)
 
 head(filtered_data)
@@ -214,6 +224,9 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 library(caret)
 process = preProcess(as.data.frame(filtered_data$abond), method=c("range"))
@@ -277,9 +290,8 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
-#filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
-#                                               decreasing = T),])
-#filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 #filtered_data = diff_test(filtered_data)
 
@@ -333,9 +345,8 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
-#filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
-#                                               decreasing = T),])
-#filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 #filtered_data = diff_test(filtered_data)
 
@@ -391,9 +402,8 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes)
 filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
-#filtered_data = droplevels(filtered_data[order(filtered_data$abond, 
-#                                               decreasing = T),])
-#filtered_data$genre = factor(filtered_data$genre, levels = unique(filtered_data$genre))
+# Reordering the order based on the sum of abundance for a given phylum
+filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 #filtered_data = diff_test(filtered_data)
 
@@ -436,6 +446,96 @@ scale = 200
 ggsave(filename = "../export/BP_taxonomy_(normalized).png",
        width = 16*scale,
        height = 18*scale,
+       units = "px",
+       dpi=200)
+```
+
+## Phylogenetic tree
+
+Importing the library.
+
+```{r}
+library(tidyverse)
+```
+
+### Control tree
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes, select = -c(species))
+filtered_data = drop_na(filtered_data)
+filtered_data = droplevels.data.frame(filtered_data)
+#filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+sums = c()
+for (k in levels(filtered_data$genre)){
+  sums = c(sums, sum( subset(filtered_data, genre == k)$abond ))
+}
+
+phylo_data = subset(filtered_data, ind == "1")[1:7]
+colnames(phylo_data) = paste0("level", seq(7))
+phylo_data = phylo_data[!duplicated(phylo_data), ] # Removing the duplicated rows
+phylo_data$abond = sums
+```
+
+Then we create a temporary dataframe which will hold the to and from phylum levels necessary to build the tree.
+
+```{r}
+edges_level1_2 <- phylo_data %>% select(level1, level2) %>% unique %>% rename(from=level1, to=level2)
+edges_level2_3 <- phylo_data %>% select(level2, level3) %>% unique %>% rename(from=level2, to=level3)
+edges_level3_4 <- phylo_data %>% select(level3, level4) %>% unique %>% rename(from=level3, to=level4)
+edges_level4_5 <- phylo_data %>% select(level4, level5) %>% unique %>% rename(from=level4, to=level5)
+edges_level5_6 <- phylo_data %>% select(level5, level6) %>% unique %>% rename(from=level5, to=level6)
+edges_level6_7 <- phylo_data %>% select(level6, level7) %>% unique %>% rename(from=level6, to=level7)
+edges=drop_na(rbind(edges_level1_2, edges_level2_3, edges_level3_4, edges_level4_5,
+                    edges_level5_6, edges_level6_7))
+
+rm(list=paste0("edges_level", seq(6), "_", seq(6)+1))
+head(edges)
+```
+
+```{r}
+library(ggraph)
+library(igraph)
+library(RColorBrewer) 
+
+colnames(phylo_data)[7] = "name"
+
+# Creating a vertices dataframe
+vertices = data.frame( 
+  name = unique(c(as.character(edges$from), as.character(edges$to)))
+)
+
+vertices = merge(x = vertices, y = phylo_data[c("name","abond")], 
+                 by = "name", all = TRUE)
+vertices$group = edges$from[ match( vertices$name, edges$to ) ]
+
+# Create a graph object 
+mygraph <- graph_from_data_frame(edges, vertices=vertices)
+ 
+ggraph(mygraph, layout = 'dendrogram', circular = T) + 
+  geom_edge_diagonal(colour="grey") +
+  scale_edge_colour_distiller(palette = "RdPu") +
+  geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=name, colour=group), size=2.7, alpha=1) +
+  geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abond, alpha=0.2)) +
+  scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
+  scale_size_continuous( range = c(0.1,10) ) +
+  theme_void() +
+  theme(
+    legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm"),
+    panel.background = element_rect(fill = "white")
+  ) +
+  expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
+```
+
+```{r}
+scale = 180
+ggsave(filename = "../export/T_taxonomy.png",
+       width = 16*scale,
+       height = 16*scale,
        units = "px",
        dpi=200)
 ```

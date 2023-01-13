@@ -228,7 +228,7 @@ library(tidyverse)
 rm(list=ls())
 thres = 0.001
 
-df = read.csv(file="refined_data/taxonomic_abondance_complete.csv",
+df = read.csv(file="refined_data/filtered_taxonomic_abundance.csv",
               sep=";",
               stringsAsFactors = T,
               na.strings = "NA")
@@ -261,8 +261,7 @@ edges_level4_5 <- data_tmp %>% select(level4, level5) %>% unique %>% rename(from
 edges_level5_6 <- data_tmp %>% select(level5, level6) %>% unique %>% rename(from=level5, to=level6)
 edges_level6_7 <- data_tmp %>% select(level6, level7) %>% unique %>% rename(from=level6, to=level7)
 edges=drop_na(rbind(edges_level1_2, edges_level2_3, edges_level3_4, edges_level4_5,
-                    edges_level5_6, edges_level6_7)
-              )
+                    edges_level5_6, edges_level6_7))
 
 unwanted_cat = c("", "Unable to found taxonomy consensus", "Unknown")
 edges = subset(edges, !(from %in% unwanted_cat) & !(to %in% unwanted_cat))
