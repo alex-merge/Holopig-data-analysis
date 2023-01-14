@@ -153,7 +153,7 @@ ggsave(filename = "../export/HM_taxonomy.png",
 
 ### Log of the relative abundance
 
-In this section, we will take the log of the relative abundance in order to see more subtile difference across samples.
+In this section, we will take the log of the relative abundance in order to see more subtle difference across samples.
 
 ```{r}
 # Selected classes
@@ -165,6 +165,7 @@ filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 # Reordering the order based on the sum of abundance for a given phylum
 filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
+filtered_data[filtered_data == 0] = 1e-5 # Transforming 0 into e-5 because of the log function which return -Inf for 0.
 filtered_data$abond = log(filtered_data$abond)
 
 head(filtered_data)
@@ -349,7 +350,7 @@ filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 filtered_data$genre = with(filtered_data, reorder(genre, abond, sum))
 
 #filtered_data = diff_test(filtered_data)
-
+filtered_data[filtered_data == 0] = 1e-5 # Transforming 0 into e-5 because of the log function which return -Inf for 0.
 filtered_data$abond = log(filtered_data$abond)
 
 head(filtered_data)
@@ -469,15 +470,16 @@ filtered_data = drop_na(filtered_data)
 filtered_data = droplevels.data.frame(filtered_data)
 #filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
 
+cross_df = data.frame(name = levels(filtered_data$genre))
 sums = c()
 for (k in levels(filtered_data$genre)){
   sums = c(sums, sum( subset(filtered_data, genre == k)$abond ))
 }
+cross_df$abond = sums
 
 phylo_data = subset(filtered_data, ind == "1")[1:7]
 colnames(phylo_data) = paste0("level", seq(7))
 phylo_data = phylo_data[!duplicated(phylo_data), ] # Removing the duplicated rows
-phylo_data$abond = sums
 ```
 
 Then we create a temporary dataframe which will hold the to and from phylum levels necessary to build the tree.
@@ -494,14 +496,10 @@ edges=drop_na(rbind(edges_level1_2, edges_level2_3, edges_level3_4, edges_level4
 
 rm(list=paste0("edges_level", seq(6), "_", seq(6)+1))
 head(edges)
-```
-
-```{r}
-library(ggraph)
-library(igraph)
-library(RColorBrewer) 
 
 colnames(phylo_data)[7] = "name"
+phylo_data = merge(x = phylo_data, y = cross_df, 
+                   by = "name", all = TRUE)
 
 # Creating a vertices dataframe
 vertices = data.frame( 
@@ -511,6 +509,12 @@ vertices = data.frame(
 vertices = merge(x = vertices, y = phylo_data[c("name","abond")], 
                  by = "name", all = TRUE)
 vertices$group = edges$from[ match( vertices$name, edges$to ) ]
+```
+
+```{r}
+library(ggraph)
+library(igraph)
+library(RColorBrewer) 
 
 # Create a graph object 
 mygraph <- graph_from_data_frame(edges, vertices=vertices)
@@ -518,15 +522,20 @@ mygraph <- graph_from_data_frame(edges, vertices=vertices)
 ggraph(mygraph, layout = 'dendrogram', circular = T) + 
   geom_edge_diagonal(colour="grey") +
   scale_edge_colour_distiller(palette = "RdPu") +
-  geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=name, colour=group), size=2.7, alpha=1) +
+  geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name, colour=group), size=5, alpha=1, check_overlap = F, show.legend = F) +
   geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abond, alpha=0.2)) +
+  guides(colour = FALSE, alpha = FALSE)+
   scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
   scale_size_continuous( range = c(0.1,10) ) +
-  theme_void() +
+  labs(title = "Prominent genre in control group",
+       size = "Summed\nrelative abundance\nacross samples")+
+  xlab("Normalized relative abundance (%)")+
+  #theme_void() +
   theme(
-    legend.position="none",
+    #legend.position="none",
     plot.margin=unit(c(0,0,0,0),"cm"),
-    panel.background = element_rect(fill = "white")
+    panel.background = element_rect(fill = "white"),
+    plot.title = element_text(face="bold", size = 25, hjust = 0.5)
   ) +
   expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
 ```
@@ -534,7 +543,7 @@ ggraph(mygraph, layout = 'dendrogram', circular = T) +
 ```{r}
 scale = 180
 ggsave(filename = "../export/T_taxonomy.png",
-       width = 16*scale,
+       width = 18*scale,
        height = 16*scale,
        units = "px",
        dpi=200)
