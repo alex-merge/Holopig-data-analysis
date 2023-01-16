@@ -170,7 +170,7 @@ Even if this looks awfull in this notebook, the exported image is fine. We then 
 ```{r}
 scale = 200 # Set the scale for the exported image
 
-ggsave(filename = paste("../export/HM_taxonomy_",taxo_level,"(RawData_logColourScale)1.png", sep=""),
+ggsave(filename = paste("../export/HM_taxonomy_",taxo_level,"(RawData_logColourScale).png", sep=""),
        width = 16*scale,
        height = 18*scale,
        units = "px",
