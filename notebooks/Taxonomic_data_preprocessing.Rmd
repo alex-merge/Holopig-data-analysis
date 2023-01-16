@@ -10,7 +10,7 @@ output: html_notebook
 First we load the data into a data.frame called **raw_df**.
 
 ```{r}
-raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.csv",
+raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.tsv",
                   sep="\t",
                   na.strings = "None")
 head(raw_df)
@@ -64,11 +64,14 @@ abundance_df = abundance_df[, c(dim(abundance_df)[2], 1:(dim(abundance_df)[2]-1)
 head(abundance_df)
 ```
 
-We then normalize the variables using the *scale* function of R.
+We can also filter the abundance, keeping only those that have at least one that is more than 1%.
 
 ```{r}
-abundance_df_normalized = abundance_df
-abundance_df_normalized[9:42] = scale(abundance_df_normalized[9:42])
+unfiltered_abundance = abundance_df
+abundance_df$sum = rowSums(abundance_df[9:42])
+
+thres = 0.01
+abundance_df = subset(abundance_df, sum >= thres)
 ```
 
 We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be agregated for each row and each sample which will lead to a 2649\*34 = 90066 rows (rows times number of samples).
@@ -92,35 +95,25 @@ for (sample in 1:34){
 }
 
 rm(list= c("tmp", "base_taxo", "category", "sample"))
-
-## Scaling the final dataframe
-final_df_normalized = final_df
-final_df_normalized$abond = scale(final_df_normalized$abond)
 ```
 
 Finally we can export both *final_df* and *abundance_df*.
 
 ```{r}
 write.table(final_df, 
-            file = "../refined_data/complete_taxonomic_abundance.csv",
-            col.names = TRUE,
-            row.names = FALSE,
-            sep=";")
-
-write.table(final_df_normalized, 
-            file = "../refined_data/complete_taxonomic_abundance_normalized.csv",
-            col.names = TRUE,
-            row.names = FALSE,
-            sep=";")
-
-write.table(abundance_df_normalized, 
-            file = "../refined_data/complete_phylogenic_X_sample_normalized.csv",
+            file = "../refined_data/filtered_taxonomic_abundance.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
 
 write.table(abundance_df, 
-            file = "../refined_data/complete_phylogenic_X_sample.csv",
+            file = "../refined_data/filtered_taxonomy_X_sample.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+
+write.table(unfiltered_abundance, 
+            file = "../refined_data/complete_taxonomy_X_sample.csv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
