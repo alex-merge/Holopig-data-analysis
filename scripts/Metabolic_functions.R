@@ -57,13 +57,6 @@ for (file in directory) {
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.COG_category'] <- 'COG_cat'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
   
-  # # If empty or with no functional correspondence, putting in another file to keep trace of the non-analysed data
-  # data_useless <- subset(data, COG_category == "-" | COG_category == "" | sum == 0)
-  # write.table(data_useless,
-  #             append = TRUE,
-  #             file = "refined_data/non_use_metabolics_functions.csv",
-  #             row.names = FALSE, col.names = TRUE, sep = ";", dec = ".")
-  
   # Summing columns by the name of the function in a dataframe, dropping code column
   functions_light_table = aggregate(x = functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'COG_cat' ]],list(functions_table_file$COG_cat), FUN=sum)
   colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'COG_cat'
@@ -87,10 +80,7 @@ for (name in name_sample){
   functions_rel_abd[,name] = functions_rel_abd[,name] / total_sum_pig #Dividing each cell by the sum of the individual and add it to the new dataframe
 }
 
-# rownames(functions_rel_abd) = as.matrix(functions_rel_abd[,1]) #make the first column as the header
-# functions_rel_abd = functions_rel_abd[,-1] #remove the first column now
-functions_rel_abd[1,'COG_cat'] <- 'Unknown'
-
+functions_rel_abd[1,'COG_cat'] <- 'Unclassified'
 
 # Add the category of the pig (colistin or control)
 transposed_cat_pig = t(data_cat_sample)
@@ -102,6 +92,8 @@ dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
 ##########################################HEATMAP##################################################
 
+name_pure_functions_letter = read.csv("ressources/functions_COG_category.csv", sep = ";")
+
 # FIRST HEATMAP OF PURE FUNCTIONS
 
 #Reshaping the data for the heatmap
@@ -109,28 +101,29 @@ reshaped_pure_functions = data.frame(matrix(nrow = 0, ncol = 4))
 colnames(reshaped_pure_functions) = c("COG_cat","Relative_abundance","Pig_name","Category")
 
 for (name_pig in name_sample) {
-  cog_pure_functions = functions_rel_abd[nchar(as.character(functions_rel_abd$COG_cat)) == '1' | functions_rel_abd$COG_cat == 'Unknown', ]
+  cog_pure_functions = functions_rel_abd[nchar(as.character(functions_rel_abd$COG_cat)) == 1 | functions_rel_abd$COG_cat == 'Unknown', ]
   reshaped_pure_functions_pig = data.frame(cog_pure_functions$COG_cat, cog_pure_functions[colnames(cog_pure_functions) == name_pig])
   reshaped_pure_functions_pig['pig'] = rep(name_pig, length(cog_pure_functions$COG_cat))
   reshaped_pure_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(cog_pure_functions$COG_cat))
   colnames(reshaped_pure_functions_pig)[colnames(reshaped_pure_functions_pig) == name_pig] = 'relative_abundance'
   reshaped_pure_functions = merge(reshaped_pure_functions, reshaped_pure_functions_pig, all = TRUE, by.y = c("cog_pure_functions.COG_cat","relative_abundance","pig","category"), by.x = c("COG_cat","Relative_abundance","Pig_name", "Category"))
 }
-
 reshaped_pure_functions = reshaped_pure_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
+reshaped_pure_functions$COG_cat = name_pure_functions_letter$Definition[match(reshaped_pure_functions$COG_cat, name_pure_functions_letter$COG_category)]
+reshaped_pure_functions$COG_cat = replace_na(reshaped_pure_functions$COG_cat,"Unclassified")
 
-ggplot(reshaped_pure_functions, aes(Pig_name, COG_cat, fill= Relative_abundance)) +
+ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
   geom_tile(colour = "white", size = 0.5) +
   scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_pure_functions$Relative_abundance), max(reshaped_pure_functions$Relative_abundance )),
+                       limits = c(min(reshaped_pure_functions$Relative_abundance), max(reshaped_pure_functions$Relative_abundance)),
                        direction = -1) +
   scale_y_discrete(expand=c(0, 0))+
   scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Relative Abundance", title = "Relative Abundance of functions by pig")+
+  labs(fill="Relative Abundance", title = "Relative Abundance of one-category functions by pig")+
   theme_grey(base_size=12)+
   theme(line = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.text.x.bottom = element_text(),
+        axis.text.x.bottom = element_text(face="bold.italic"),
         axis.text.y = element_text(face="bold.italic"),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
@@ -153,18 +146,73 @@ ggsave(filename = "export/HM_pure_functions.png",
        dpi=200)
 
 # SECOND HEATMAP OF PURE FUNCTIONS + MELTED FUNCTIONS
-ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance)) +
+
+#Reshaping the data for the heatmap
+reshaped_melt_functions = data.frame(matrix(nrow = 0, ncol = 4))
+colnames(reshaped_melt_functions) = c("COG_cat","Relative_abundance","Pig_name","Category")
+
+for (name_pig in name_sample) {
+  cog_melt_functions = functions_rel_abd[nchar(as.character(functions_rel_abd$COG_cat)) > 1 & functions_rel_abd$COG_cat != 'Unknown', ]
+  reshaped_melt_functions_pig = data.frame(cog_melt_functions$COG_cat, cog_melt_functions[colnames(cog_melt_functions) == name_pig])
+  reshaped_melt_functions_pig['pig'] = rep(name_pig, length(cog_melt_functions$COG_cat))
+  reshaped_melt_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(cog_melt_functions$COG_cat))
+  colnames(reshaped_melt_functions_pig)[colnames(reshaped_melt_functions_pig) == name_pig] = 'relative_abundance'
+  reshaped_melt_functions = merge(reshaped_melt_functions, reshaped_melt_functions_pig, all = TRUE, by.y = c("cog_melt_functions.COG_cat","relative_abundance","pig","category"), by.x = c("COG_cat","Relative_abundance","Pig_name", "Category"))
+}
+reshaped_melt_functions = reshaped_melt_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
+reshaped_all_functions = merge(reshaped_pure_functions, reshaped_melt_functions, all=TRUE, by=c("COG_cat","Relative_abundance","Pig_name", "Category"))
+
+ggplot(reshaped_all_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
   geom_tile(colour = "white", size = 0.5) +
   scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance )),
+                       limits = c(min(reshaped_all_functions$Relative_abundance), max(reshaped_all_functions$Relative_abundance)),
                        direction = -1) +
   scale_y_discrete(expand=c(0, 0))+
   scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Relative Abundance", title = "Relative Abundance of functions by pig")+
+  labs(fill="Relative Abundance", title = "Relative Abundance of all the functions by pig")+
   theme_grey(base_size=12)+
   theme(line = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
+        axis.text.x.bottom = element_text(face="bold.italic"),
+        axis.text.y = element_text(face="bold.italic", size = 5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(cols = vars(factor(reshaped_all_functions$Category, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = "export/HM_all_functions.png",
+       width = 16*scale,
+       height = 20*scale,
+       units = "px",
+       dpi=200)
+
+# THIRD HEATMAP OF PURE FUNCTIONS WITHOUT UNKNOWN VALUES
+
+#Reshaping the data for the heatmap
+
+reshaped_pure_functions_wo_HighVal = reshaped_pure_functions[-grep(pattern = 'Function unknown|Unclassified', reshaped_pure_functions$COG_cat),]
+
+ggplot(reshaped_pure_functions_wo_HighVal, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
+  geom_tile(colour = "white", size = 0.5) +
+  scale_fill_distiller(palette = "Spectral",
+                       limits = c(min(reshaped_pure_functions_wo_HighVal$Relative_abundance), max(reshaped_pure_functions_wo_HighVal$Relative_abundance)),
+                       direction = -1) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Relative Abundance", title = "Relative Abundance of one-category functions by pig without unknown functions")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x.bottom = element_text(face="bold.italic"),
         axis.text.y = element_text(face="bold.italic"),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
@@ -175,107 +223,52 @@ ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance))
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
         strip.text.x = element_text(face = "bold", size = 15))+
-  facet_grid(cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistin"))),
+  facet_grid(cols = vars(factor(reshaped_pure_functions_wo_HighVal$Category, levels = c("Control", "Colistin"))),
              scales = "free",
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "export/HM_functions.png",
+ggsave(filename = "export/HM_pure_functions_no_unkown.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
        dpi=200)
 
-
-
+# FOURTH HEATMAP OF PURE FUNCTIONS + MELTED FUNCTIONS WITHOUT UNKNOWN VALUES
 
 #Reshaping the data for the heatmap
-# reshaped_functions = data.frame(matrix(nrow = 0, ncol = 4))
-# colnames(reshaped_functions) = c("Description","Relative_abundance","Pig_name","Category")
 
-# for (name_pig in name_sample) {
-#   description = functions_rel_abd$Description
-#   reshaped_functions_pig = data.frame(description, functions_rel_abd[colnames(functions_rel_abd) == name_pig])
-#   reshaped_functions_pig['pig'] = rep(name_pig, length(description))
-#   reshaped_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(description))
-#   colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] = 'relative_abundance'
-#   reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("description","relative_abundance","pig","category"), by.x = c("Description","Relative_abundance","Pig_name", "Category"))
-# }
-# 
-# cal_z_score <- function(x){
-#   (x - mean(x)) / sd(x)
-# }
-# 
-# reshaped_functions_norm <- apply(reshaped_functions[,2], 1, cal_z_score)
+reshaped_all_functions_wo_HighVal = reshaped_all_functions[-grep(pattern = 'Function unknown|Unclassified', reshaped_all_functions$COG_cat),]
 
-# annotation_name_column = data.frame(data_cat_sample$name_sample, c(1:length(name_sample)))
-# 
-# scale = 200
-# 
-# functions_rel_abd_matrix = data.matrix(functions_rel_abd)
-# 
-# pheatmap(functions_rel_abd_matrix,
-#          main = "Relative Abundance of functions by pig",
-#          filename = "export/HM_functions.png",
-#          width = 16*scale,
-#          height = 18*scale)
-# 
-# graphics.off()
-# 
-# 
-# pheatmap(functions_rel_abd,
-#          color = colorRampPalette(rev(brewer.pal(n = 7, name ="RdYlBu")))(100),
-#          na_col = "#DDDDDD", #grey
-#          scale = "column",
-#          cluster_rows = FALSE,
-#          number_format = "%.1e",
-#          fontsize_row = 3,
-#          main = "Relative Abundance of functions by pig",
-#          filename = "export/HM_functions.png",
-#          width = 16*scale,
-#          height = 18*scale)
-# 
-# 
-# ggsave(filename = "export/HM_functions.png",
-#        width = 16*scale,
-#        height = 18*scale,
-#        units = "px",
-#        dpi=200)
-
-
-################################################################################
-
-
-# ggplot(reshaped_functions, aes(Pig_name, Description, fill= Relative_abundance)) + 
-#   geom_tile(colour = "white", size = 0.5) +
-#   scale_fill_distiller(palette = "Spectral", 
-#                        limits = c(min(reshaped_functions$Relative_abundance), max(reshaped_functions$Relative_abundance )),
-#                        direction = -1) +
-#   scale_y_discrete(expand=c(0, 0))+
-#   scale_x_discrete(expand=c(0, 0))+
-#   labs(fill="Relative Abundance", title = "Relative Abundance of functions by pig")+
-#   theme_grey(base_size=12)+
-#   theme(line = element_blank(),
-#         axis.ticks.x = element_blank(),
-#         axis.text.x = element_blank(),
-#         axis.text.y = element_text(face="bold.italic"),
-#         axis.title.x = element_blank(),
-#         axis.title.y = element_blank(),
-#         panel.border=element_blank(),
-#         legend.text=element_text(face="bold", size = 15),
-#         plot.title = element_text(face="bold", size = 25),
-#         legend.title = element_text(face="bold", size = 15),
-#         legend.key.size = unit(2, "cm"),
-#         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
-#         strip.text.x = element_text(face = "bold", size = 15))+
-#   facet_grid(cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistin"))),
-#              scales = "free",
-#              space = "free",
-#              labeller = )
-# scale = 200
-# ggsave(filename = "export/HM_functions.png",
-#        width = 16*scale,
-#        height = 18*scale,
-#        units = "px",
-#        dpi=200)
-# 
+ggplot(reshaped_all_functions_wo_HighVal, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
+  geom_tile(colour = "white", size = 0.5) +
+  scale_fill_distiller(palette = "Spectral",
+                       limits = c(min(reshaped_all_functions_wo_HighVal$Relative_abundance), max(reshaped_all_functions_wo_HighVal$Relative_abundance)),
+                       direction = -1) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Relative Abundance", title = "Relative Abundance of all the functions by pig without unknown functions")+
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x.bottom = element_text(face="bold.italic"),
+        axis.text.y = element_text(face="bold.italic", size = 5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 25),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(cols = vars(factor(reshaped_all_functions_wo_HighVal$Category, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = "export/HM_all_functions_no_unknown.png",
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
