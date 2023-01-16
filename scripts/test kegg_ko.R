@@ -55,9 +55,9 @@ for (file in directory) {
   }
   
   # If non-empty, keeping columns of interest and creating a new dataframe
-  data_mod = subset(data, GOs != "" & sum != 0)
-  functions_table_file = data.frame(data_mod$GOs, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.GOs'] <- 'COG_cat'
+  data_mod = subset(data, KEGG_ko != "" & sum != 0)
+  functions_table_file = data.frame(data_mod$KEGG_ko, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.KEGG_ko'] <- 'COG_cat'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
   
   # Summing columns by the name of the function in a dataframe, dropping code column
