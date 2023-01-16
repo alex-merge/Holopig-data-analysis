@@ -465,7 +465,7 @@ library(tidyverse)
 # Selected classes
 selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
 
-filtered_data = subset(data, kingdom %in% selected_classes, select = -c(species))
+filtered_data = subset(data, kingdom %in% selected_classes & cat == "Control", select = -c(species))
 filtered_data = drop_na(filtered_data)
 filtered_data = droplevels.data.frame(filtered_data)
 #filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
@@ -482,7 +482,7 @@ colnames(phylo_data) = paste0("level", seq(7))
 phylo_data = phylo_data[!duplicated(phylo_data), ] # Removing the duplicated rows
 ```
 
-Then we create a temporary dataframe which will hold the to and from phylum levels necessary to build the tree.
+Then we create a temporary dataframe which will hold the *to* and *from* phylum levels necessary to build the tree.
 
 ```{r}
 edges_level1_2 <- phylo_data %>% select(level1, level2) %>% unique %>% rename(from=level1, to=level2)
@@ -529,20 +529,104 @@ ggraph(mygraph, layout = 'dendrogram', circular = T) +
   scale_size_continuous( range = c(0.1,10) ) +
   labs(title = "Prominent genre in control group",
        size = "Summed\nrelative abundance\nacross samples")+
-  xlab("Normalized relative abundance (%)")+
-  #theme_void() +
   theme(
     #legend.position="none",
     plot.margin=unit(c(0,0,0,0),"cm"),
     panel.background = element_rect(fill = "white"),
-    plot.title = element_text(face="bold", size = 25, hjust = 0.5)
+    plot.title = element_text(face="bold", size = 25, hjust = 0.5, vjust = 0)
   ) +
   expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
 ```
 
 ```{r}
 scale = 180
-ggsave(filename = "../export/T_taxonomy.png",
+ggsave(filename = "../export/T_taxonomy_control.png",
+       width = 18*scale,
+       height = 16*scale,
+       units = "px",
+       dpi=200)
+```
+
+### Colistin tree
+
+This is the exact same script as the previous part except that we select the "Colistin" group.
+
+```{r}
+# Selected classes
+selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
+
+filtered_data = subset(data, kingdom %in% selected_classes & cat == "Colistin", select = -c(species))
+filtered_data = drop_na(filtered_data)
+filtered_data = droplevels.data.frame(filtered_data)
+#filtered_data = drop_na(filtered_data[c("kingdom","genre","ind","cat","abond")])
+
+cross_df = data.frame(name = levels(filtered_data$genre))
+sums = c()
+for (k in levels(filtered_data$genre)){
+  sums = c(sums, sum( subset(filtered_data, genre == k)$abond ))
+}
+cross_df$abond = sums
+
+phylo_data = subset(filtered_data, ind == "2")[1:7]
+colnames(phylo_data) = paste0("level", seq(7))
+phylo_data = phylo_data[!duplicated(phylo_data), ] # Removing the duplicated rows
+
+edges_level1_2 <- phylo_data %>% select(level1, level2) %>% unique %>% rename(from=level1, to=level2)
+edges_level2_3 <- phylo_data %>% select(level2, level3) %>% unique %>% rename(from=level2, to=level3)
+edges_level3_4 <- phylo_data %>% select(level3, level4) %>% unique %>% rename(from=level3, to=level4)
+edges_level4_5 <- phylo_data %>% select(level4, level5) %>% unique %>% rename(from=level4, to=level5)
+edges_level5_6 <- phylo_data %>% select(level5, level6) %>% unique %>% rename(from=level5, to=level6)
+edges_level6_7 <- phylo_data %>% select(level6, level7) %>% unique %>% rename(from=level6, to=level7)
+edges=drop_na(rbind(edges_level1_2, edges_level2_3, edges_level3_4, edges_level4_5,
+                    edges_level5_6, edges_level6_7))
+
+rm(list=paste0("edges_level", seq(6), "_", seq(6)+1))
+head(edges)
+
+colnames(phylo_data)[7] = "name"
+phylo_data = merge(x = phylo_data, y = cross_df, 
+                   by = "name", all = TRUE)
+
+# Creating a vertices dataframe
+vertices = data.frame( 
+  name = unique(c(as.character(edges$from), as.character(edges$to)))
+)
+
+vertices = merge(x = vertices, y = phylo_data[c("name","abond")], 
+                 by = "name", all = TRUE)
+vertices$group = edges$from[ match( vertices$name, edges$to ) ]
+```
+
+```{r}
+library(ggraph)
+library(igraph)
+library(RColorBrewer) 
+
+# Create a graph object 
+mygraph <- graph_from_data_frame(edges, vertices=vertices)
+ 
+ggraph(mygraph, layout = 'dendrogram', circular = T) + 
+  geom_edge_diagonal(colour="grey") +
+  scale_edge_colour_distiller(palette = "RdPu") +
+  geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name, colour=group), size=5, alpha=1, check_overlap = F, show.legend = F) +
+  geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abond, alpha=0.2)) +
+  guides(colour = FALSE, alpha = FALSE)+
+  scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
+  scale_size_continuous( range = c(0.1,10) ) +
+  labs(title = "Prominent genre in colistin group",
+       size = "Summed\nrelative abundance\nacross samples")+
+  theme(
+    #legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm"),
+    panel.background = element_rect(fill = "white"),
+    plot.title = element_text(face="bold", size = 25, hjust = 0.5, vjust = 0)
+  ) +
+  expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
+```
+
+```{r}
+scale = 180
+ggsave(filename = "../export/T_taxonomy_colistin.png",
        width = 18*scale,
        height = 16*scale,
        units = "px",
