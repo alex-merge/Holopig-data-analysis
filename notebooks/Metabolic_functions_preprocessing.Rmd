@@ -1,0 +1,64 @@
+---
+title: "Metabolic_functions_preprocessing"
+output: html_document
+---
+
+# Metabolic functions preprocessing
+
+The preprocessing is made by /scripts/Rax_data_splitter.R and made to handle tsv input file as default.
+
+## Setting general parameters
+
+As general parameters, the user can choose the name of the input file (must be a tsv file, if not see next paragraph), the prefix of the outputs files and the number of outputs files. The larger the number of files, the smaller the size of the output files, the easier they will be to process.
+
+```{r cars}
+filepath        = "raw_data/Quantifications_and_functional_annotations.tsv"
+output_basename = "Annot_"
+nb_file     = 20       # Number of file wanted at the end
+```
+
+## Importation of the input file
+
+**If the input file is not a tsv, the separator should be change.** Then if you have a file separate by :
+
+-   tabulations (.tsv) : do not change the command
+
+-   commas (.csv) : remove `sep="\t",` . The default separator is "," for `read.csv`.
+
+-   semi-colon : change `sep="\t",` by `sep=";"`
+
+```{r}
+data = read.csv(filepath, sep="\t", header = FALSE)
+```
+
+The decimal sign is set as ".". If you used "," as decimal delimiter, please add `dec = ","` in the command above. We treat the header as a row by `header = FALSE`.
+
+## Parting raw data by the number of lines
+
+We choose to parting the data according to the number of row.
+
+We retrieve the total number of rows of the raw data (`nb_rows`). We set the number of rows per file by dividing `nb_rows` per `nb_file`. And we save the header of the raw data in `header_line` for a further use.
+
+```{r}
+nb_rows = nrow(data)
+nb_rows_per_file = ceiling(nb_rows/nbr_fichier) #round up the number
+header_line = data[1,]
+```
+
+We fill each output file using a for-loop.
+
+```{r}
+nb_row_inf = 1 #row number of the header line
+
+for (id in 1:nb_file) {
+  nb_row_inf = nb_row_inf + 1
+  nb_row_sup = id*nb_rows_per_file
+  out_df = rbind(header_line, data[nb_row_inf:nb_row_sup, ])
+  write.table(out_df, 
+              file = paste("refined_data/",output_basename,id,".csv", sep=""), 
+              row.names = FALSE, col.names = FALSE, sep=";")
+  nb_row_inf = nb_row_sup
+}
+```
+
+`nb_row_inf` corresponds to the first row of data for the output file. We set it at 1 to avoid taking the header row. And then, it takes the value of the last row in the previous output file. Thanks to the +1 at each beginning of loop, we avoid the repetition of taking the same row in two different files.

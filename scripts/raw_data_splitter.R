@@ -1,11 +1,12 @@
-## Scripts pour diviser les fichiers TSV en plus petits fichiers pour faciliter
-## le traitement.
+## Script for dividing TSV file into smaller CSV in order to make the post treatment
+## easier
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Paramètres généraux 
-filepath = "raw_data/Quantifications_and_functional_annotations.tsv"
+# General parameters (can be modified by the user)
+
+filepath        = "raw_data/Quantifications_and_functional_annotations.tsv"
 output_basename = "Annot_"
-nbr_fichier = 20 #Nombre de fichier voulus
+nb_file         = 20       # Number of file wanted at the end
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -14,12 +15,12 @@ data = read.csv(filepath, sep="\t", header = FALSE)
 
 #Parting the raw data by the number of lines
 nb_rows = nrow(data)
-nb_rows_per_file = ceiling(nb_rows/nbr_fichier) #round up the number
+nb_rows_per_file = ceiling(nb_rows/nb_file) #round up the number
 header_line = data[1,]
 
 nb_row_inf = 1 #row number of the header line
 
-for (id in 1:nbr_fichier) {
+for (id in 1:nb_file) {
   nb_row_inf = nb_row_inf + 1
   nb_row_sup = id*nb_rows_per_file
   out_df = rbind(header_line, data[nb_row_inf:nb_row_sup, ])

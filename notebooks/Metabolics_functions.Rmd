@@ -1,6 +1,14 @@
 ---
-title: "R Notebook"
+title: "Metabolic_functions_analysis"
 output: html_notebook
 ---
 
+# Metabolic functions analysis
 
+## Settings to load the preprocessed data
+
+Put the output prefix used in /scripts/Raw_data_splitter in `pattern =` .
+
+```{r}
+directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
+```
