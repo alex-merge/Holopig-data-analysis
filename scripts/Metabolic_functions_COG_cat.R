@@ -1,9 +1,3 @@
-functions_rel_abd_sum_testColisitin = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Colistin"])) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Colisitin))
-functions_rel_abd_sum_testControl = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Control"])) %>% mutate(nb_empty_sample_Control = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Control))
-
-#####################TEST remove data before computing###################
-
-
 # Library
 library(ggplot2)
 library(hrbrthemes)
@@ -33,7 +27,6 @@ data_cat_sample = data.frame(name_sample, category)
 ## COLLECTING THE FILE NAMES OF SPLIT TABLE ##
 directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
 
-
 ## WORK ON PREVIOULY SPLIT FILE ##
 # Initializing table for the for-loop
 columns_reads = c(name_sample)
@@ -45,6 +38,7 @@ rownames(nb_reads_pig) = rows_reads
 columns = c("COG_cat", name_sample, "Sum")
 functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
+
 
 for (file in directory) {
   
@@ -84,7 +78,7 @@ functions_rel_abd = functions_general_table %>% select(-c(Sum)) #Exclusion of th
 # Calculating the relative abundance
 for (name in name_sample){
   total_sum_pig = sum(nb_reads_pig[[name]])
-  functions_rel_abd[,name] = functions_rel_abd[,name] / total_sum_pig #Dividing each cell by the sum of the individual and add it to the new dataframe
+  functions_rel_abd[,name] = functions_general_table[,name] / total_sum_pig #Dividing each cell by the sum of the individual and add it to the new dataframe
 }
 
 functions_rel_abd_sum = separate_rows(functions_rel_abd, COG_cat, sep = "", convert = TRUE)
@@ -93,6 +87,10 @@ functions_rel_abd_sum = aggregate(functions_rel_abd_sum[, colnames(functions_rel
 colnames(functions_rel_abd_sum)[colnames(functions_rel_abd_sum) == 'Group.1'] <- 'COG_cat'
 
 functions_rel_abd_sum[(grepl("-", functions_rel_abd_sum$COG_cat)),'COG_cat'] <- 'Unclassified'
+
+functions_rel_abd_sum_testColisitin = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Colistin"])) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Colisitin))
+functions_rel_abd_sum_testControl = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Control"])) %>% mutate(nb_empty_sample_Control = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Control))
+functions_rel_abd_sum = subset(functions_rel_abd_sum, (functions_rel_abd_sum_testColisitin$nb_empty_sample_Colisitin <= 8 & functions_rel_abd_sum_testControl$nb_empty_sample_Control <= 8) == TRUE)
 
 
 # Add the category of the pig (colistin or control)
@@ -123,8 +121,6 @@ for (name_pig in name_sample) {
 reshaped_pure_functions = reshaped_pure_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
 reshaped_pure_functions$COG_cat = name_pure_functions_letter$Definition[match(reshaped_pure_functions$COG_cat, name_pure_functions_letter$COG_category)]
 reshaped_pure_functions$COG_cat = replace_na(reshaped_pure_functions$COG_cat,"Unclassified")
-
-reshaped_pure_functions_test = reshaped_pure_functions %>% sum(with(reshaped_pure_functions, gender == "M"))
 
 ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
   geom_tile(colour = "white", size = 0.5) +
