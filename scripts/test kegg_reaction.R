@@ -74,7 +74,7 @@ for (file in directory) {
 
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Setting the for loop
-functions_rel_abd = functions_general_table %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
+functions_rel_abd = functions_general_table #%>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
 
 
 # Calculating the relative abundance
@@ -91,8 +91,10 @@ dataframe_pig_cat = data.frame(transposed_cat_pig)
 names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
 dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
-
-functions_rel_abd = functions_rel_abd[!apply(functions_rel_abd==0.000000e+00,1,any),]   ##########
+functions_rel_abd = tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')
+functions_rel_abd = functions_rel_abd[order(functions_rel_abd$Sum),]
+functions_rel_abd = top_n(functions_rel_abd,60)
+functions_rel_abd = functions_rel_abd %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
 
 
 ##########################################HEATMAP##################################################
@@ -114,9 +116,12 @@ for (name_pig in name_sample) {
   colnames(reshaped_melt_functions_pig)[colnames(reshaped_melt_functions_pig) == name_pig] = 'relative_abundance'
   reshaped_melt_functions = merge(reshaped_melt_functions, reshaped_melt_functions_pig, all = TRUE, by.y = c("cog_melt_functions.COG_cat","relative_abundance","pig","category"), by.x = c("COG_cat","Relative_abundance","Pig_name", "Category"))
 }
-reshaped_melt_functions = reshaped_melt_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
+reshaped_all_functions = reshaped_melt_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
 #reshaped_all_functions = merge(reshaped_pure_functions, reshaped_melt_functions, all=TRUE, by=c("COG_cat","Relative_abundance","Pig_name", "Category"))
-reshaped_all_functions = tidyr::separate_rows(reshaped_melt_functions,COG_cat,sep =',')
+#reshaped_all_functions = tidyr::separate_rows(reshaped_melt_functions,COG_cat,sep =',')
+
+reshaped_all_functions = subset(reshaped_all_functions, COG_cat!= 'Unclassified')
+
 
 
 ggplot(reshaped_all_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
