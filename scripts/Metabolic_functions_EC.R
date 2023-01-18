@@ -4,6 +4,7 @@ library(hrbrthemes)
 library(tidyverse)
 library(tidyr)
 library(RColorBrewer)
+library(reshape)
 
 
 ## MAKING ASSOCIATION BETWEEN THE SAMPLE AND ITS CONDITION ##
@@ -88,10 +89,9 @@ colnames(enzymes_rel_abd_sum)[colnames(enzymes_rel_abd_sum) == 'Group.1'] <- 'EC
 
 enzymes_rel_abd_sum[(grepl("-", enzymes_rel_abd_sum$EC_name)),'EC_name'] <- 'Unclassified'
 
-functions_rel_abd_sum_testColisitin = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Colistin"])) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Colisitin))
-functions_rel_abd_sum_testControl = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Control"])) %>% mutate(nb_empty_sample_Control = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Control))
-functions_rel_abd_sum = subset(functions_rel_abd_sum, (functions_rel_abd_sum_testColisitin$nb_empty_sample_Colisitin <= 8 & functions_rel_abd_sum_testControl$nb_empty_sample_Control <= 8) == TRUE)
-
+enzymes_rel_abd_sum_testColisitin = enzymes_rel_abd_sum %>% select(c(EC_name, data_cat_sample$name_sample[data_cat_sample$category == "Colistin"])) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0)) %>% select(c(EC_name,nb_empty_sample_Colisitin))
+enzymes_rel_abd_sum_testControl = enzymes_rel_abd_sum %>% select(c(EC_name, data_cat_sample$name_sample[data_cat_sample$category == "Control"])) %>% mutate(nb_empty_sample_Control = rowSums(. == 0)) %>% select(c(EC_name,nb_empty_sample_Control))
+enzymes_rel_abd_sum = subset(enzymes_rel_abd_sum, (enzymes_rel_abd_sum_testColisitin$nb_empty_sample_Colisitin <= 8 & enzymes_rel_abd_sum_testControl$nb_empty_sample_Control <= 8) == TRUE)
 
 # Add the category of the pig (colistin or control)
 transposed_cat_pig = t(data_cat_sample)
@@ -103,33 +103,36 @@ dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
 ##########################################HEATMAP##################################################
 
-name_pure_functions_letter = read.csv("ressources/functions_COG_category.csv", sep = ";")
+name_enzyme_code = read.csv("ressources/EC_equivalences.csv", sep = ";")
 
 # FIRST HEATMAP OF PURE FUNCTIONS
 
+enzymes_rel_abd_sum_ord = order(rowMeans(enzymes_rel_abd_sum[,-1]), decreasing = TRUE)
+enzymes_rel_abd_final = enzymes_rel_abd_sum[enzymes_rel_abd_sum_ord[1:34],]
+
 #Reshaping the data for the heatmap
-reshaped_pure_functions = data.frame(matrix(nrow = 0, ncol = 4))
-colnames(reshaped_pure_functions) = c("COG_cat","Relative_abundance","Pig_name","Category")
+reshaped_enzymes = data.frame(matrix(nrow = 0, ncol = 4))
+colnames(reshaped_enzymes) = c("EC_description","Relative_abundance","Pig_name","Category")
 
 for (name_pig in name_sample) {
-  reshaped_pure_functions_pig = data.frame(functions_rel_abd_sum$COG_cat, functions_rel_abd_sum[colnames(functions_rel_abd_sum) == name_pig])
-  reshaped_pure_functions_pig['pig'] = rep(name_pig, length(functions_rel_abd_sum$COG_cat))
-  reshaped_pure_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(functions_rel_abd_sum$COG_cat))
-  colnames(reshaped_pure_functions_pig)[colnames(reshaped_pure_functions_pig) == name_pig] = 'relative_abundance'
-  reshaped_pure_functions = merge(reshaped_pure_functions, reshaped_pure_functions_pig, all = TRUE, by.y = c("functions_rel_abd_sum.COG_cat","relative_abundance","pig","category"), by.x = c("COG_cat","Relative_abundance","Pig_name", "Category"))
+  reshaped_enzymes_pig = data.frame(enzymes_rel_abd_final$EC_name, enzymes_rel_abd_final[colnames(enzymes_rel_abd_final) == name_pig])
+  reshaped_enzymes_pig['pig'] = rep(name_pig, length(enzymes_rel_abd_final$EC_name))
+  reshaped_enzymes_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(enzymes_rel_abd_final$EC_name))
+  colnames(reshaped_enzymes_pig)[colnames(reshaped_enzymes_pig) == name_pig] = 'relative_abundance'
+  reshaped_enzymes = merge(reshaped_enzymes, reshaped_enzymes_pig, all = TRUE, by.y = c("enzymes_rel_abd_final.EC_name","relative_abundance","pig","category"), by.x = c("EC_description","Relative_abundance","Pig_name", "Category"))
 }
-reshaped_pure_functions = reshaped_pure_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
-reshaped_pure_functions$COG_cat = name_pure_functions_letter$Definition[match(reshaped_pure_functions$COG_cat, name_pure_functions_letter$COG_category)]
-reshaped_pure_functions$COG_cat = replace_na(reshaped_pure_functions$COG_cat,"Unclassified")
+reshaped_enzymes = reshaped_enzymes %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
+reshaped_enzymes$EC_description = name_enzyme_code$EC_description[match(reshaped_enzymes$EC_description, name_enzyme_code$EC_name)]
+reshaped_enzymes$EC_description = replace_na(reshaped_enzymes$EC_description,"Unclassified")
 
-ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
+ggplot(reshaped_enzymes, aes(Pig_name, reorder(EC_description, Relative_abundance), fill= Relative_abundance)) +
   geom_tile(colour = "white", size = 0.5) +
   scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_pure_functions$Relative_abundance), max(reshaped_pure_functions$Relative_abundance)),
+                       limits = c(min(reshaped_enzymes$Relative_abundance), max(reshaped_enzymes$Relative_abundance)),
                        direction = -1) +
   scale_y_discrete(expand=c(0, 0))+
   scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Sum of relative abundance", title = "Sum of relative abundance of functions by pig")+
+  labs(fill="Sum of relative abundance", title = "Sum of relative abundance of enzymes by pig")+
   theme_grey(base_size=12)+
   theme(line = element_blank(),
         axis.ticks.x = element_blank(),
@@ -144,12 +147,12 @@ ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundanc
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
         strip.text.x = element_text(face = "bold", size = 15))+
-  facet_grid(cols = vars(factor(reshaped_pure_functions$Category, levels = c("Control", "Colistin"))),
+  facet_grid(cols = vars(factor(reshaped_enzymes$Category, levels = c("Control", "Colistin"))),
              scales = "free",
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "export/HM_pure_functions.png",
+ggsave(filename = "export/HM_enzymes_functions.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",

@@ -80,7 +80,11 @@ diff_test = function(data){
 }
 ```
 
+<<<<<<< Updated upstream
 ## III. Heatmap
+=======
+## Heatmap
+>>>>>>> Stashed changes
 
 We will create a heatmap of relative abundances of reads per taxon and per individual while separating the groups (Colistine or control).
 
