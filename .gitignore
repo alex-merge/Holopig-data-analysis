@@ -40,3 +40,6 @@ vignettes/*.pdf
 *.tsv
 *.tsv#
 *.csv#
+*.pptx#
+*.pptx#
+.RDataTmp
