@@ -97,7 +97,7 @@ First, we can choose the taxonomic level we want to plot.
 
 ```{r}
 #ENTER VALUE 
-taxo_level = "kingdom"    #possible options : kingdom	- phylum -	class	- order -	familly -	genre -	species
+taxo_level = "species"    #possible options : kingdom	- phylum -	class	- order -	familly -	genre -	species
 ```
 
 Then, we filter data by class and an abundance threshold.
