@@ -24,7 +24,7 @@ library(RColorBrewer)
 library(reshape)
 ```
 
-## Associate each sample with it's condition 
+## Associate each sample with it's condition
 
 Annotate the controls and colistin treated pigs.
 
@@ -46,20 +46,16 @@ category = c("Control", "Colistin", "Control", "Control", "Control", "Control",
 data_cat_sample = data.frame(name_sample, category)
 ```
 
-
 ## Work on the split files
 
-Datas ar extracted and some works, like obtaining the relative abundance,
-are done.
+Datas ar extracted and some works, like obtaining the relative abundance, are done.
 
 ## Initialistion of the loop.
 
-A loop, which will get each file, extract the needed datas, and get the relative
-abundance is used.
-
+A loop, which will get each file, extract the needed datas, and get the relative abundance is used.
 
 ```{r}
-directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
+directory=list.files(path = "../refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
 columns_reads = c(name_sample)
 rows_reads = c(directory)
 nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
@@ -71,13 +67,9 @@ functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
 ```
 
+## Begin the loop.
 
-
-
-##  Begin the loop.
-
-This loop is going to gather each files to get the information contained in 
-each of them, and treat these informations.
+This loop is going to gather each files to get the information contained in each of them, and treat these informations.
 
 ##### A] To get the COG_category's data
 
@@ -85,7 +77,7 @@ each of them, and treat these informations.
 for (file in directory) {
   
   # Manipulation of each split file
-  filepath = paste("refined_data/", file, sep = "")
+  filepath = paste("../refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
   # Counter of total reads for each pig in each file (no filter)
@@ -112,8 +104,7 @@ for (file in directory) {
 }
 ```
 
-Some more treatments are done on the data to calculate the relative abundance and
-to prepare them for the heatmap, 
+Some more treatments are done on the data to calculate the relative abundance and to prepare them for the heatmap,
 
 ```{r}
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
@@ -150,13 +141,12 @@ dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
 ```
 
-
 A first heatmap is created
 
 ```{r}
 ##########################################HEATMAP##################################################
 
-name_pure_functions_letter = read.csv("ressources/functions_COG_category.csv", sep = ";")
+name_pure_functions_letter = read.csv("../ressources/functions_COG_category.csv", sep = ";")
 
 # FIRST HEATMAP OF PURE FUNCTIONS
 
@@ -202,7 +192,7 @@ ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundanc
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "export/HM_pure_functions.png",
+ggsave(filename = "../export/HM_pure_functions.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
@@ -212,7 +202,7 @@ ggsave(filename = "export/HM_pure_functions.png",
 
 ```
 
-A second heatmap is created, with thee unknown datas removed. 
+A second heatmap is created, with thee unknown datas removed.
 
 ```{r}
 reshaped_pure_functions_no_unknown = reshaped_pure_functions[-grep(pattern = 'Function unknown|Unclassified', reshaped_pure_functions$COG_cat),]
@@ -244,27 +234,32 @@ ggplot(reshaped_pure_functions_no_unknown[], aes(Pig_name, reorder(COG_cat, Rela
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "export/HM_pure_functions_no_unkown.png",
+ggsave(filename = "../export/HM_pure_functions_no_unkown.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
        dpi=200)
 ```
 
-
-
-
-
 #### B] To get the enzymes data
 
-The treatment is similar than above.
-Only the enzymes with the highest relative abundance are kept.
+The treatment is similar than above. Only the enzymes with the highest relative abundance are kept.
 
 ```{r}
+columns_reads = c(name_sample)
+rows_reads = c(directory)
+nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
+colnames(nb_reads_pig) = columns_reads
+rownames(nb_reads_pig) = rows_reads
+
+columns = c("EC_name", name_sample, "Sum")
+enzymes_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
+colnames(enzymes_general_table) = columns
+
 for (file in directory) {
   
   # Manipulation of each split file
-  filepath = paste("refined_data/", file, sep = "")
+  filepath = paste("../refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
   # Counter of total reads for each pig in each file (no filter)
@@ -323,7 +318,7 @@ dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
 ##########################################HEATMAP##################################################
 
-name_enzyme_code = read.csv("ressources/EC_equivalences.csv", sep = ";")
+name_enzyme_code = read.csv("../ressources/EC_equivalences.csv", sep = ";")
 
 # FIRST HEATMAP OF PURE FUNCTIONS
 
@@ -372,7 +367,7 @@ ggplot(reshaped_enzymes, aes(Pig_name, reorder(EC_description, Relative_abundanc
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "export/HM_enzymes_functions.png",
+ggsave(filename = "../export/HM_enzymes_functions.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
@@ -381,7 +376,7 @@ ggsave(filename = "export/HM_enzymes_functions.png",
 
 ```
 
-A second heatmap without the unknown datas is created.  
+A second heatmap without the unknown datas is created.
 
 ```{r}
 reshaped_pure_functions_no_unknown = reshaped_pure_functions[-grep(pattern = 'Function unknown|Unclassified', reshaped_pure_functions$COG_cat),]
@@ -420,9 +415,7 @@ ggsave(filename = "export/HM_pure_functions_no_unkown.png",
        dpi=200)
 ```
 
-
-For the next heatmaps, the treatment is relatively similar.
-The differences between each is only th column used.
+For the next heatmaps, the treatment is relatively similar. The differences between each is only th column used.
 
 #### C] To get the GOs
 
@@ -430,7 +423,7 @@ The differences between each is only th column used.
 for (file in directory) {
   
   # Manipulation of each split file
-  filepath = paste("refined_data/", file, sep = "")
+  filepath = paste("../refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
   
@@ -549,7 +542,6 @@ ggsave(filename = "export/GOs.png",
        units = "px",
        dpi=200)
 ```
-
 
 #### C] To get the KEEG_ko
 
@@ -677,7 +669,6 @@ ggsave(filename = "export/KEEG_ko.png",
        dpi=200)
 ```
 
-
 #### C] To get the KEEG_Pathways
 
 ```{r}
@@ -803,7 +794,6 @@ ggsave(filename = "export/KEEG_Pathway.png",
        units = "px",
        dpi=200)
 ```
-
 
 #### C] To get the KEEG_Modules
 
@@ -931,7 +921,6 @@ ggsave(filename = "export/KEEG_Module.png",
        dpi=200)
 ```
 
-
 #### C] To get the KEEG_Reactions
 
 ```{r}
@@ -1057,4 +1046,3 @@ ggsave(filename = "export/KEEG_Reaction.png",
        units = "px",
        dpi=200)
 ```
-
