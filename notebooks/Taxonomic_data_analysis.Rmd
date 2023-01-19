@@ -80,11 +80,7 @@ diff_test = function(data){
 }
 ```
 
-<<<<<<< Updated upstream
 ## III. Heatmap
-=======
-## Heatmap
->>>>>>> Stashed changes
 
 We will create a heatmap of relative abundances of reads per taxon and per individual while separating the groups (Colistine or control).
 
@@ -108,7 +104,6 @@ taxo_level = "species"    #possible options : kingdom	- phylum -	class	- order -
 Then, we filter data by class and an abundance threshold.
 
 ```{r}
-
 # Selected classes
 selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
 
@@ -128,7 +123,7 @@ head(filtered_data)
 
 Only those columns ar necessary in order to make the heatmap.
 
-We can now plot the heatmap. As there are a lot of small values, we use a logarythmic color scale so they are well separated.
+We can now plot the heatmap. As there are a lot of small values, we use a logarithmic color scale so they are well separated.
 
 ```{r}
 #definition of the value to print on the color scale

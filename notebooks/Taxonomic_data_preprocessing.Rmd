@@ -3,11 +3,14 @@ title: "Taxonomic data preprocessing"
 output: html_notebook
 ---
 
-### Reduction into a data.frame with relative abundances for each clade
+# Reduction into a data.frame with relative abundances for each clade
+
 This part aims to treat the result of metagenomic sequencing by reducing a data sheet of quantity and quality of reads for each individual (columns) per taxon (lines) in a data frame containing for one taxon and one individual (lines) the different taxonomic information and the relative abundance of reads.
 
+## Importing the raw dataset
 
 First we load the data into a data.frame called **raw_df**.
+
 ```{r}
 raw_df = read.csv(file="../raw_data/quantification_by_contig_lineage_all.tsv",
                   sep="\t",
@@ -22,8 +25,8 @@ We will remove some columns and rename others to make it easier to work with. Fi
 splitted_levels = strsplit(raw_df$lineage_by_level, "; ")
 abundance_df = as.data.frame( t(data.frame(splitted_levels)) )
 
-# Renaming the columns according to levels
-colnames(abundance_df) = c("kingdom", "phylum", "class", "order", "familly", "genre", "species")
+# Renaming the columns according to taxonomic ranks
+colnames(abundance_df) = c("kingdom", "phylum", "class", "order", "family", "genus", "species")
 
 # Removing complicated row names
 rownames(abundance_df) = NULL
@@ -63,17 +66,39 @@ abundance_df = abundance_df[, c(dim(abundance_df)[2], 1:(dim(abundance_df)[2]-1)
 head(abundance_df)
 ```
 
-We can also filter the abundance, keeping only those that have at least one that is more than 1%.
+## Filtering rows according to the relative abundance mean
 
 ```{r}
 unfiltered_abundance = abundance_df
-abundance_df$sum = rowSums(abundance_df[9:42])
-
-thres = 0.01
-abundance_df = subset(abundance_df, sum >= thres)
+abundance_df$Mean = rowMeans(abundance_df[9:42])
 ```
 
-We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be aggregated for each row and each sample which will lead to a 2649*34 = 90066 rows (rows times number of samples).
+In an attempt to remove less valuable values, we will filter them according to their mean. The mean correspond to the relative abundance mean across samples for each row. In order to do that, we compute the quantile associated to a 90% probability (i.e. the value at which 90% of observation are included). This threshold divide the 10% best rows from the 90% others.
+
+```{r}
+## Getting the quantile as threshold
+thres = quantile(abundance_df$Mean, prob=c(.90), type=1)
+
+library(ggplot2)
+ggplot(abundance_df, aes(x=Mean)) + 
+  geom_histogram(binwidth=0.01) +
+  geom_vline(xintercept = thres, linetype = "dashed", linewidth = 1.5, 
+             color = "red")+
+  geom_label(label = paste0("Threshold\n",round(thres, 3)), x = thres, y = 100, 
+             color = "red")+
+  xlab("Relative abundance mean")+
+  ggtitle("Ditribution of relative abundance means")
+```
+
+The next cell remove the rows where the mean relative abundance is less than the threshold.
+
+```{r}
+abundance_df = subset(abundance_df, Mean >= thres)
+```
+
+## Transforming the data.frame for ggplot
+
+We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be aggregated for each row and each sample which will lead to a 2649\*34 = 90066 rows (rows times number of samples).
 
 ```{r}
 base_taxo = abundance_df[, 1:8]
