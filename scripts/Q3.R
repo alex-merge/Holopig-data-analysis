@@ -20,10 +20,9 @@ rm(list=ls())
 library(tidyr)
 
 
-df = read.csv(file="refined_data/Annot_1.csv",
-              sep=";",
+df = read.csv(file="raw_data/Quantifications_and_functional_annotations.tsv",
+              sep="\t",
               stringsAsFactors = TRUE,
-              nrows = 1000,
               na.strings = c("NA", "-"))
 dim_raw = dim(df)[1]
 df = df[,c(2:35,44)]
@@ -91,18 +90,35 @@ cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)] #pour mettre la
 
 
 final_data = melt(cor_data)
+## Droping NA
+final_data = drop_na(final_data)
 final_data$metabolites = as.factor(final_data$metabolites)
+colnames(final_data)[2] = "genes"
+
 
 #calculating the average correlation coefficient of each metabolite
-mean_per_metab = data.frame()
+mean_per_metab = c()
 for (i in levels(final_data$metabolites)){
-mean_per_metab = rbind(mean_per_metab,c(i, colMeans(subset(final_data, metabolites == i, select = value))))
+  mean_per_metab = c(mean_per_metab, colMeans(subset(final_data, metabolites == i, select = value)) )
 }
-colnames(mean_per_metab) = c("metabolite", "mean")
+mean_per_metab = data.frame(metabolite = levels(final_data$metabolites),
+                            mean = mean_per_metab)
 
 # keeping only the metabolites most correlated to the genes 
 mean_per_metab = subset(mean_per_metab, mean >= 0.1)
-final_data2= subset(final_data, metabolites %in% mean_per_metab$metabolite)
+
+mean_per_gene = c()
+for (i in levels(final_data$genes)){
+  mean_per_gene = c(mean_per_gene, colMeans(subset(final_data, genes == i, select = value)) )
+}
+mean_per_gene = data.frame(gene = levels(final_data$genes),
+                            mean = mean_per_gene)
+
+# keeping only the metabolites most correlated to the genes 
+mean_per_gene = subset(mean_per_gene, mean >= 0.1)
+
+final_data2= subset(final_data, 
+                    metabolites %in% mean_per_metab$metabolite & genes %in% mean_per_gene$gene)
 
 
 #CREATION HEATMAP
@@ -147,7 +163,7 @@ ggplot(final_data2, aes(variable, metabolites, fill= value)) +
 #SAVE HEATMAP  
 scale = 200 # Set the scale for the exported image
 
-ggsave(filename = "export/heatmap_correlation.png",
+ggsave(filename = "export/heatmap_correlation_VA.png",
        plot = last_plot(),
        width = 40*scale,
        height = 30*scale,
