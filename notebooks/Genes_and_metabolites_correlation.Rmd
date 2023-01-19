@@ -15,7 +15,7 @@ library(tidyr)
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
               sep="\t",
               stringsAsFactors = TRUE,
-              nrow = 1000,
+              #nrow = 1000,
               na.strings = c("NA", "-"))
 ```
 
@@ -64,7 +64,7 @@ gene_df$Piglet = rownames(gene_df)
 head(gene_df)
 ```
 
-##  Metabolite dataset
+## Metabolite dataset
 
 ```{r}
 metabo_df = read.csv(file="../raw_data/HOLOPIG METABOLITES clean.csv",
@@ -122,7 +122,7 @@ We then export the current dataframe.
 
 ```{r}
 write.table(melted_data, 
-            file = "../refined_data/metabo_X_gene_cor.csv",
+            file = "../refined_data/metabo_X_gene_cor.tsv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
@@ -202,7 +202,7 @@ We save the filtered dataframe.
 
 ```{r}
 write.table(filtered_melted_data, 
-            file = "../refined_data/filtered_metabo_X_gene_cor.csv",
+            file = "../refined_data/filtered_metabo_X_gene_cor.tsv",
             col.names = TRUE,
             row.names = FALSE,
             sep=";")
