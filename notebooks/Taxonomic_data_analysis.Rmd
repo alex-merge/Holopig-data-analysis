@@ -121,7 +121,7 @@ filtered_data = drop_na(filtered_data[c("kingdom",taxo_level,"ind","cat","abond"
 filtered_data[,2] = with(filtered_data, reorder(filtered_data[,2], abond, sum))
 
 #FACULTATIVE : remove abundance that seem aberrant and replace by the second maximal abundance in the colomn
-filtered_data[998,5] =0; filtered_data[998,5]= max(filtered_data[,5])
+filtered_data[998,5] = 0; filtered_data[998,5]= max(filtered_data[,5])
 
 head(filtered_data)
 ```
@@ -571,11 +571,11 @@ mygraph <- graph_from_data_frame(edges, vertices=vertices)
 ggraph(mygraph, layout = 'dendrogram', circular = T) + 
   geom_edge_diagonal(colour="grey") +
   scale_edge_colour_distiller(palette = "RdPu") +
-  geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name, colour=group), size=5, alpha=1, check_overlap = F, show.legend = F) +
+  geom_node_text(aes(x = x*1.2, y=y*1.2, filter = leaf, label=name, colour=group), size=10, alpha=1, check_overlap = F, show.legend = F) +
   geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abond, alpha=0.2)) +
   guides(colour = FALSE, alpha = FALSE)+
   scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
-  scale_size_continuous( range = c(0.1,10) ) +
+  scale_size_continuous( range = c(0.1,20) ) +
   labs(title = "Prominent genre in control group",
        size = "Summed\nrelative abundance\nacross samples")+
   theme(
@@ -589,9 +589,9 @@ ggraph(mygraph, layout = 'dendrogram', circular = T) +
 
 ```{r}
 scale = 180
-ggsave(filename = "../export/T_taxonomy_control.png",
-       width = 18*scale,
-       height = 16*scale,
+ggsave(filename = "../export/T_taxonomy_control2.png",
+       width = 35*scale,
+       height = 20*scale,
        units = "px",
        dpi=200)
 ```
