@@ -68,8 +68,8 @@ data = Filter(function(x)!all(is.na(x)), data) # Removing empty columns
 #library(ellipse)
 library(RColorBrewer)
 cor_data = cor(data[,-1])
-#final_data = melt(cor_data)
 
+#ne conserver que les correlations entre genes et metabolites
 cor_data = subset(cor_data, rownames(cor_data) %in% metabo_names, select = as.factor(gene_names))
 #thres = 0.95
 #cor_data[cor_data[] < thres] = NA
@@ -102,7 +102,7 @@ colnames(mean_per_metab) = c("metabolite", "mean")
 
 # keeping only the metabolites most correlated to the genes 
 mean_per_metab = subset(mean_per_metab, mean >= 0.1)
-final_data2= subset(final_data, metabolites %in% mean_per_metab$metabolite)
+final_data_bests= subset(final_data, metabolites %in% mean_per_metab$metabolite)
 
 
 #CREATION HEATMAP
@@ -110,7 +110,7 @@ library(ggplot2)
 library(RColorBrewer)
 library(tidyr)
 
-ggplot(final_data2, aes(variable, metabolites, fill= value)) +
+ggplot(final_data_bests, aes(variable, metabolites, fill= value)) +
   geom_tile(colour = "white", size = 0.5)+
   scale_fill_gradientn(name = "Correlation coefficient",# definition of the color gradient.
                        #trans = "log10", #chosing a logarythmic color scale
