@@ -1,11 +1,10 @@
-# Library
 library(ggplot2)
 library(hrbrthemes)
 library(tidyverse)
 library(tidyr)
 library(RColorBrewer)
+library(reshape)
 
-## MAKING ASSOCIATION BETWEEN THE SAMPLE AND ITS CONDITION ##
 name_sample = c()
 for (nb_pig in 1:34) {
   if (nb_pig < 10){
@@ -22,13 +21,7 @@ category = c("Control", "Colistin", "Control", "Control", "Control", "Control",
              "Colistin", "Colistin", "Colistin", "Colistin")
 data_cat_sample = data.frame(name_sample, category)
 
-
-## COLLECTING THE FILE NAMES OF SPLIT TABLE ##
 directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
-
-
-## WORK ON PREVIOULY SPLIT FILE ##
-# Initializing table for the for-loop
 columns_reads = c(name_sample)
 rows_reads = c(directory)
 nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
@@ -38,6 +31,7 @@ rownames(nb_reads_pig) = rows_reads
 columns = c("COG_cat", name_sample, "Sum")
 functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
 colnames(functions_general_table) = columns
+
 
 for (file in directory) {
   
@@ -55,9 +49,9 @@ for (file in directory) {
   }
   
   # If non-empty, keeping columns of interest and creating a new dataframe
-  data_mod = subset(data, KEGG_Reaction != "" & sum != 0)
-  functions_table_file = data.frame(data_mod$KEGG_Reaction, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.KEGG_Reaction'] <- 'COG_cat'
+  data_mod = subset(data, KEGG_Pathway != "" & sum != 0)
+  functions_table_file = data.frame(data_mod$KEGG_Pathway, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
+  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.KEGG_Pathway'] <- 'COG_cat'
   colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
   
   # Summing columns by the name of the function in a dataframe, dropping code column
@@ -74,7 +68,7 @@ for (file in directory) {
 
 ## TREATMENT ON ALL THE REMAINING FUNCTIONS
 # Setting the for loop
-functions_rel_abd = functions_general_table #%>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
+functions_rel_abd = functions_general_table %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
 
 
 # Calculating the relative abundance
@@ -90,11 +84,6 @@ transposed_cat_pig = t(data_cat_sample)
 dataframe_pig_cat = data.frame(transposed_cat_pig)
 names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
 dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
-
-#functions_rel_abd = tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')
-#functions_rel_abd = functions_rel_abd[order(functions_rel_abd$Sum),]
-#functions_rel_abd = top_n(functions_rel_abd,60)
-#functions_rel_abd = functions_rel_abd %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
 
 
 functions_rel_abd = tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')
@@ -117,13 +106,12 @@ functions_rel_abd = functions_rel_abd[functions_rel_abd_ordered[1:100],]
 #functions_rel_abd = top_n(functions_rel_abd,100)
 ##########################################HEATMAP##################################################
 
-# SECOND HEATMAP OF PURE FUNCTIONS + MELTED FUNCTIONS
 
 #Reshaping the data for the heatmap
 reshaped_melt_functions = data.frame(matrix(nrow = 0, ncol = 4))
 colnames(reshaped_melt_functions) = c("COG_cat","Relative_abundance","Pig_name","Category")
 
-#tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')          ##########
+
 
 for (name_pig in name_sample) {
   
@@ -139,6 +127,14 @@ reshaped_all_functions = reshaped_melt_functions %>% mutate(Pig_name = gsub("(\\
 #reshaped_all_functions = tidyr::separate_rows(reshaped_melt_functions,COG_cat,sep =',')
 
 reshaped_all_functions = subset(reshaped_all_functions, COG_cat!= 'Unclassified')
+
+
+
+Name_KEGG_module = read.csv("ressources/KEGG_pathway.csv", sep = ";")
+#######
+reshaped_all_functions$COG_cat = Name_KEGG_module$Definition[match(reshaped_all_functions$COG_cat, Name_KEGG_module$Reference)] ####"#####
+#######
+
 
 
 
@@ -170,7 +166,7 @@ ggplot(reshaped_all_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance
              labeller = )
 scale = 200
 
-ggsave(filename = "export/kegg_reaction.png",
+ggsave(filename = "export/KEGG_Pathway.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
