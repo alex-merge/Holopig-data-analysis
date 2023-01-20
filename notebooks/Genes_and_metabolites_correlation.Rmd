@@ -24,6 +24,15 @@ After loading the gene dataset, we remove all columns except those containing th
 ```{r}
 dim_raw = dim(gene_df)[1]
 gene_df = gene_df[,c(2:35,44)]
+
+## Computing relative abundance
+for (i in 1:34){
+  sum_col = sum(gene_df[,i])
+  if (sum_col != 0){
+    gene_df[,i] = gene_df[,i]/sum_col
+  }
+}
+
 gene_df = drop_na(gene_df)
 print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(gene_df)[1],")"))
 
@@ -33,15 +42,6 @@ gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] #pour mettre la col
 ```
 
 The relative abundances are then computed.
-
-```{r}
-for (i in 2:35){
-  sum_col = sum(gene_df[,i])
-  if (sum_col != 0){
-    gene_df[,i] = gene_df[,i]/sum_col
-  }
-}
-```
 
 We then aggregate the duplicated genes by row.
 
@@ -134,15 +134,13 @@ write.table(melted_data,
 In order to do that, we aggregate the correlation values according to the metabolite first and then the gene. That way we compute means for correlation according a given metabolite across genes and then a given gene across metabolites.
 
 ```{r}
-metabo_means = aggregate(melted_data$value, by = list(melted_data$metabolites),
+metabo_means = aggregate(abs(melted_data$value), by = list(melted_data$metabolites),
                           FUN = mean)
 colnames(metabo_means) = c("metabolite", "mean")
-metabo_means$mean = abs(metabo_means$mean)
 
-gene_means = aggregate(melted_data$value, by = list(melted_data$genes),
+gene_means = aggregate(abs(melted_data$value), by = list(melted_data$genes),
                         FUN = mean)
 colnames(gene_means) = c("gene", "mean")
-gene_means$mean = abs(gene_means$mean)
 
 head(gene_means)
 ```
