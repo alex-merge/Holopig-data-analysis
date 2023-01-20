@@ -70,7 +70,8 @@ head(gene_df)
 metabo_df = read.csv(file="../raw_data/HOLOPIG METABOLITES clean.csv",
                     sep=";",
                     stringsAsFactors = TRUE,
-                    na.strings = "NA")
+                    na.strings = "NA",
+                    check.names = F)
 metabo_df = subset(metabo_df, select = -c(Group)) ## Removing "Group" column
 
 metabo_df$Piglet = paste0("Piglet_",as.character(metabo_df$Piglet)) ## Renaming piglets
