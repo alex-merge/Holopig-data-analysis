@@ -106,7 +106,7 @@ head(cor_data)
 ```{r}
 library(reshape2)
 
-melted_data = melt(cor_data) ## Melting the data.frame
+melted_data = melt(cor_data, id = "metabolites") ## Melting the data.frame
 melted_data = drop_na(melted_data) ## Removing empty columns
 melted_data$metabolites = as.factor(melted_data$metabolites) 
 colnames(melted_data)[2] = "genes"
@@ -125,7 +125,7 @@ write.table(melted_data,
             file = "../refined_data/metabo_X_gene_cor.tsv",
             col.names = TRUE,
             row.names = FALSE,
-            sep=";")
+            sep="\t")
 ```
 
 # Filtering metabolites and genes according to their correlation mean.
@@ -205,7 +205,7 @@ write.table(filtered_melted_data,
             file = "../refined_data/filtered_metabo_X_gene_cor.tsv",
             col.names = TRUE,
             row.names = FALSE,
-            sep=";")
+            sep="\t")
 ```
 
 # Creating the heatmap
