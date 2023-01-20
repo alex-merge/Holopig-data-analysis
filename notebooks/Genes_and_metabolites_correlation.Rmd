@@ -203,10 +203,10 @@ We save the filtered dataframe.
 
 ```{r}
 write.table(filtered_melted_data, 
-            file = "../refined_data/filtered_metabo_X_gene_cor.tsv",
+            file = "../refined_data/filtered_metabo_X_gene_cor.csv",
             col.names = TRUE,
             row.names = FALSE,
-            sep="\t")
+            sep=";")
 ```
 
 # Creating the heatmap
