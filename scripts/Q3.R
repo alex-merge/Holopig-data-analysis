@@ -20,15 +20,17 @@ rm(list=ls())
 library(tidyr)
 
 
-df = read.csv(file="refined_data/Annot_1.csv",
-              sep=";",
+df = read.csv(file="raw_data/Quantifications_and_functional_annotations.tsv",
+              sep="\t",
               stringsAsFactors = TRUE,
-              nrows = 1000,
+              nrow = 1000,
               na.strings = c("NA", "-"))
+
 dim_raw = dim(df)[1]
 df = df[,c(2:35,44)]
 df = drop_na(df)
 print(paste0((dim(df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(df)[1],")"))
+
 head(df)
 colnames(df) = c(paste0("Piglet_", seq(34)), "Gene")
 df = df[c(dim(df)[2], 1:(dim(df)[2])-1)] #pour mettre la colonne gène à gauche. 
@@ -41,11 +43,11 @@ for (i in 2:35){
   }
 }
 
-# Aggregating 
+# Aggregating duplicated genes
 df = aggregate(df[-1], by = list(df$Gene), FUN = sum)
 colnames(df)[1] = "Gene"
 
-gene_names = levels(df$Gene) #on stocke la lite des genes
+gene_names = levels(df$Gene) #on stocke la liste des genes
 
 df2 = as.data.frame(t(df)) #on transpose df (indiv en ligne et genes en colonne)
 colnames(df2) = df2[1,]
@@ -91,18 +93,47 @@ cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)] #pour mettre la
 
 
 final_data = melt(cor_data)
+## Droping NA
+final_data = drop_na(final_data)
 final_data$metabolites = as.factor(final_data$metabolites)
+colnames(final_data)[2] = "genes"
 
+
+## New way of filtering
+metabo_filter = aggregate(final_data$value, by = list(final_data$metabolites),
+                          FUN = mean)
+colnames(metabo_filter) = c("metabolite", "mean")
+
+gene_filter = aggregate(final_data$value, by = list(final_data$genes),
+                        FUN = mean)
+colnames(gene_filter) = c("gene", "mean")
+
+
+
+## Old way of filtering
 #calculating the average correlation coefficient of each metabolite
-mean_per_metab = data.frame()
+mean_per_metab = c()
 for (i in levels(final_data$metabolites)){
-mean_per_metab = rbind(mean_per_metab,c(i, colMeans(subset(final_data, metabolites == i, select = value))))
+  mean_per_metab = c(mean_per_metab, colMeans(subset(final_data, metabolites == i, select = value)) )
 }
-colnames(mean_per_metab) = c("metabolite", "mean")
+mean_per_metab = data.frame(metabolite = levels(final_data$metabolites),
+                            mean = mean_per_metab)
 
 # keeping only the metabolites most correlated to the genes 
 mean_per_metab = subset(mean_per_metab, mean >= 0.1)
-final_data2= subset(final_data, metabolites %in% mean_per_metab$metabolite)
+
+mean_per_gene = c()
+for (i in levels(final_data$genes)){
+  mean_per_gene = c(mean_per_gene, colMeans(subset(final_data, genes == i, select = value)) )
+}
+mean_per_gene = data.frame(gene = levels(final_data$genes),
+                            mean = mean_per_gene)
+
+# keeping only the metabolites most correlated to the genes 
+mean_per_gene = subset(mean_per_gene, mean >= 0.1)
+
+final_data2= subset(final_data, 
+                    metabolites %in% mean_per_metab$metabolite & genes %in% mean_per_gene$gene)
 
 
 #CREATION HEATMAP
@@ -147,7 +178,7 @@ ggplot(final_data2, aes(variable, metabolites, fill= value)) +
 #SAVE HEATMAP  
 scale = 200 # Set the scale for the exported image
 
-ggsave(filename = "export/heatmap_correlation.png",
+ggsave(filename = "export/heatmap_correlation_VA.png",
        plot = last_plot(),
        width = 40*scale,
        height = 30*scale,
