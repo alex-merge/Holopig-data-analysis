@@ -166,7 +166,7 @@ ggplot(reshaped_all_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance
              labeller = )
 scale = 200
 
-ggsave(filename = "export/KEGG_ko.png",
+ggsave(filename = "export/Metabolics_functions_KEGG_ko.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
