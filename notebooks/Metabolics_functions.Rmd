@@ -5,15 +5,9 @@ output: html_notebook
 
 # Metabolic functions analysis
 
-## Settings to load the preprocessed data
+The current notebook explains how to handle data in order to get the relative abundance of functions (enzymes, GO, ...) and differentiate it by the class of the individual (control or colistin).
 
-Put the output prefix used in /scripts/Raw_data_splitter in `pattern =` .
-
-```{r}
-directory=list.files(path = "refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
-```
-
-## Import each library that may be useful
+## Import libraries
 
 ```{r}
 library(ggplot2)
@@ -24,12 +18,18 @@ library(RColorBrewer)
 library(reshape)
 ```
 
-## Associate each sample with it's condition
+## Association between the piglet and its condition
 
-Annotate the controls and colistin treated pigs.
+We associate two lists :
+
+-   `name_sample` : names of the piglet which appear in columns. The name and the column need to be the same because we use the name_sample as a variable to get all the individuals in further parts.
+
+-   `catogory` : class of the piglet. The vector begins with the category of the firs piglet, the last category given corresponds to the last piglet (here the 34th piglet) .
 
 ```{r}
-name_sample = c()
+
+name_sample = c() #empty list
+
 for (nb_pig in 1:34) {
   if (nb_pig < 10){
     name_sample = c(name_sample, paste("Holopig_colon0", nb_pig, ".featureCounts.tsv", sep = ""))
@@ -43,178 +43,279 @@ category = c("Control", "Colistin", "Control", "Control", "Control", "Control",
              "Colistin", "Colistin", "Colistin", "Colistin", "Control", "Control",
              "Control", "Control", "Control", "Colistin", "Control", "Colistin",
              "Colistin", "Colistin", "Colistin", "Colistin")
+
 data_cat_sample = data.frame(name_sample, category)
+```
+
+From this we transpose the data frame to get each piglet name's as columns and the category as the value of the row. It will be further used for the creation of heatmaps.
+
+```{r}
+# Add the category of the pig (colistin or control)
+transposed_cat_pig = t(data_cat_sample)
+dataframe_pig_cat = data.frame(transposed_cat_pig)
+names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
+dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
+```
+
+## Settings to load the preprocessed data
+
+Put the output prefix used in /scripts/Raw_data_splitter in `pattern =` . Be careful the current working directory is not the general folder. Then you need to escape it (..) and enter in the folder where there are the split files from raw metabolic data (/refined_data). The list of the files is saved in the directory variable.
+
+```{r}
+
+directory=list.files(path = "../refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
+```
+
+### Sum of reads per individual
+
+We set up an empty data frame (`nb_reads_pig`) in order to get the total sum of reads per individual. It will be further use for calculating the relative abundance.
+
+```{r}
+
+columns_reads = c(name_sample)
+rows_reads    = c(directory)
+nb_reads_pig  = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
+colnames(nb_reads_pig) = columns_reads
+rownames(nb_reads_pig) = rows_reads
+
+for (file in directory) {
+  
+  # Manipulation of each split file
+  filepath  = paste("../refined_data/", file, sep = "")
+  data      = read.csv(filepath, sep = ";")
+  
+  # Counter of total reads for each pig in each file
+  for (name_pig in name_sample) {
+    sum_reads_pig = sum(na.omit(data[, colnames(data)[colnames(data) == name_pig]]))
+    nb_reads_pig[file, name_pig] = sum_reads_pig
+  }
+}
+
+nb_reads_pig[nrow(nb_reads_pig)+1,] = colSums(nb_reads_pig)
+rownames(nb_reads_pig)[nrow(nb_reads_pig)] = 'Total'
+
+```
+
+### Removing useless variables
+
+Clean up the environment to remove useless variables. Optional step.
+
+```{r}
+rm(list = c("category", "columns_reads", "file", "filepath", "name_pig", "nb_pig", "rows_reads", "sum_reads_pig"))
 ```
 
 ## Work on the split files
 
-Datas ar extracted and some works, like obtaining the relative abundance, are done.
+To treat the data is an easier way, we have split it in different files and now we want to aggregate the data of interest little by little, file per file. To do so, we use a for-loop to look at each file. Loading the complete raw data is longer than loading several smaller files.
 
-## Initialistion of the loop.
+### Relative Abundance
 
-A loop, which will get each file, extract the needed datas, and get the relative abundance is used.
+Creating empty data frame. Will be use in the for-loop to store the filtered data.
 
 ```{r}
-directory=list.files(path = "../refined_data", pattern = "Annot") #Retrieve file name in path witch contains the pattern
-columns_reads = c(name_sample)
-rows_reads = c(directory)
-nb_reads_pig = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
-colnames(nb_reads_pig) = columns_reads
-rownames(nb_reads_pig) = rows_reads
+columns_filtered = c(name_sample, "COG_category", "GOs", "EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Reaction", "CAZy", "PFAMs")
+data_filtered = data.frame(matrix(nrow = 0, ncol = length(columns_filtered)))
+colnames(data_filtered) = columns_filtered
 
-columns = c("COG_cat", name_sample, "Sum")
-functions_general_table = data.frame(matrix(nrow = 0, ncol = length(columns)))
-colnames(functions_general_table) = columns
 ```
 
-## Begin the loop.
-
-This loop is going to gather each files to get the information contained in each of them, and treat these informations.
-
-##### A] To get the COG_category's data
+1.  We remove unnecessary columns and rows with Sum = 0 (genes where no reads mapped)
+2.  We calculate the relative abundance per individuals.
+3.  We only select rows which present more than 8 values for a single group. This means if the colistin group gets more than 8 values (i.e. values different from 0), we keep the entire row. If the colistin group gets less than 8 values but the control group does, we keep the entire row. But neither the colistin group or the control group gets more than 8 values, we drop the row.
 
 ```{r}
+
 for (file in directory) {
   
   # Manipulation of each split file
   filepath = paste("../refined_data/", file, sep = "")
   data = read.csv(filepath, sep = ";")
   
-  # Counter of total reads for each pig in each file (no filter)
-  for (name_pig in name_sample) {
-    sum_reads_pig = sum(na.omit(data[, colnames(data)[colnames(data) == name_pig]]))
-    nb_reads_pig[file, name_pig] = sum_reads_pig
+  data = data %>% select(-c(seed_cluster, seed_ortholog, evalue, score, BRITE, KEGG_Module, KEGG_rclass, KEGG_TC, BiGG_Reaction, eggNOG_OGs, max_annot_lvl, Description, sseqid, stitle))
+  data_RelAbd_mod = subset(data, sum != 0)
+  data_RelAbd_mod = data_RelAbd_mod %>% select(-sum)
+
+  # Creating a new dataframe with relative abundances
+  for (name in name_sample) {
+  data_RelAbd_mod[,name] = data_RelAbd_mod[,name] / nb_reads_pig["Total",name] #Dividing each cell by the total of reads for the individual and add it to the new dataframe
   }
+  # Giving up the rows if there is less than 8 values for both categories.(i.e. =/= 0)
+  data_RelAbd_testColistin = data_RelAbd_mod %>% select(data_cat_sample$name_sample[data_cat_sample$category == "Colistin"]) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0))
+  data_RelAbd_testControl = data_RelAbd_mod %>% select(data_cat_sample$name_sample[data_cat_sample$category == "Control"]) %>% mutate(nb_empty_sample_Control = rowSums(. == 0))
+  data_RelAbd_filtered = subset(data_RelAbd_mod, data_RelAbd_testColistin$nb_empty_sample_Colisitin <= 8 | data_RelAbd_testControl$nb_empty_sample_Control <= 8) #Keeping rows if there is less than 8 times 0 in one category
   
-  # If non-empty, keeping columns of interest and creating a new dataframe
-  data_mod = subset(data, COG_category != "" & sum != 0)
-  functions_table_file = data.frame(data_mod$COG_category, data_mod[, grepl(".featureCounts.tsv$", names(data_mod))], data_mod$sum)
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.COG_category'] <- 'COG_cat'
-  colnames(functions_table_file)[colnames(functions_table_file) == 'data_mod.sum'] <- 'Sum'
-  
-  # Summing columns by the name of the function in a dataframe, dropping code column
-  functions_light_table = aggregate(x = functions_table_file[, colnames(functions_table_file)[colnames(functions_table_file) != 'COG_cat' ]],list(functions_table_file$COG_cat), FUN=sum)
-  colnames(functions_light_table)[colnames(functions_light_table) == 'Group.1'] <- 'COG_cat'
-  
-  # Merging dataframes with read numbers one after the other
-  functions_general_table = merge(functions_general_table, functions_light_table, all = TRUE)
-  functions_general_table = aggregate(functions_general_table[, colnames(functions_general_table)[colnames(functions_general_table) != 'COG_cat']], list(functions_general_table$COG_cat), FUN=sum)
-  colnames(functions_general_table)[colnames(functions_general_table) == 'Group.1'] <- 'COG_cat'
-  
+  # Binding the result from a file, one after the other
+  data_filtered = merge(data_filtered,data_RelAbd_filtered, all = TRUE)
+
 }
-```
-
-Some more treatments are done on the data to calculate the relative abundance and to prepare them for the heatmap,
-
-```{r}
-## TREATMENT ON ALL THE REMAINING FUNCTIONS
-# Setting the for loop
-functions_rel_abd = functions_general_table %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
-
-
-# Calculating the relative abundance
-for (name in name_sample){
-  total_sum_pig = sum(nb_reads_pig[[name]])
-  functions_rel_abd[,name] = functions_general_table[,name] / total_sum_pig #Dividing each cell by the sum of the individual and add it to the new dataframe
-}
-
-functions_rel_abd_sum = separate_rows(functions_rel_abd, COG_cat, sep = "", convert = TRUE)
-functions_rel_abd_sum = functions_rel_abd_sum[(grepl(".{+}", functions_rel_abd_sum$COG_cat)),]
-functions_rel_abd_sum = aggregate(functions_rel_abd_sum[, colnames(functions_rel_abd_sum)[colnames(functions_rel_abd_sum) != 'COG_cat']], list(functions_rel_abd_sum$COG_cat), FUN=sum)
-colnames(functions_rel_abd_sum)[colnames(functions_rel_abd_sum) == 'Group.1'] <- 'COG_cat'
-
-functions_rel_abd_sum[(grepl("-", functions_rel_abd_sum$COG_cat)),'COG_cat'] <- 'Unclassified'
-
-functions_rel_abd_sum_testColisitin = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Colistin"])) %>% mutate(nb_empty_sample_Colisitin = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Colisitin))
-functions_rel_abd_sum_testControl = functions_rel_abd_sum %>% select(c(COG_cat, data_cat_sample$name_sample[data_cat_sample$category == "Control"])) %>% mutate(nb_empty_sample_Control = rowSums(. == 0)) %>% select(c(COG_cat,nb_empty_sample_Control))
-functions_rel_abd_sum = subset(functions_rel_abd_sum, (functions_rel_abd_sum_testColisitin$nb_empty_sample_Colisitin <= 8 & functions_rel_abd_sum_testControl$nb_empty_sample_Control <= 8) == TRUE)
-
-
-# Add the category of the pig (colistin or control)
-transposed_cat_pig = t(data_cat_sample)
-dataframe_pig_cat = data.frame(transposed_cat_pig)
-names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
-dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
-
-
-
 
 ```
 
-A first heatmap is created
+### Exportation of the filtered data
 
 ```{r}
-##########################################HEATMAP##################################################
 
-name_pure_functions_letter = read.csv("../ressources/functions_COG_category.csv", sep = ";")
+write.table(data_filtered, file = "../refined_data/Quantifications_and_functional_annotations_filtered", sep = '\t', row.names = FALSE, quote = FALSE)
 
-# FIRST HEATMAP OF PURE FUNCTIONS
+```
 
-#Reshaping the data for the heatmap
-reshaped_pure_functions = data.frame(matrix(nrow = 0, ncol = 4))
-colnames(reshaped_pure_functions) = c("COG_cat","Relative_abundance","Pig_name","Category")
+### Removing useless variables
+
+Clean up the environment to remove useless variables. Optional step.
+
+```{r}
+rm(list = c("data", "data_RelAbd_filtered", "data_RelAbd_testColistin", "data_RelAbd_testControl", "data_RelAbd_mod", "file", "filepath", "name", "columns_filtered"))
+```
+
+## Getting dataframe for the selected function
+
+All the processing before needs to be run one time. The following processing steps can be run several times (for each function of interest) one the same `data_filtered` dataframe because all the possible functions were kept.
+
+### Setting the function of interest
+
+The user needs to fill the type of function he has interest for. There is predetermined choices, it only could be the name of a column kept in the `data_filtered` data frame.
+
+```{r}
+#choose the function of interest
+function_interest = c("COG_category") #several choices but one at the time
+function_interest = c("GOs")
+function_interest = c("KEGG_ko")
+function_interest = c("KEGG_Pathway")
+function_interest = c("KEEG_Reaction")
+function_interest = c("CAZy")
+function_interest = c("PFAMs")
+function_interest = c("EC")
+
+```
+
+### Getting the sum of the relative abundances by the function
+
+```{r}
+
+# Keeping columns of interest and creating a new dataframe
+functions_interest_data = data_filtered[,c(function_interest, name_sample)]
+  
+# Summing columns by the name of the function in a dataframe
+functions_interest_data = aggregate(x = functions_interest_data[, colnames(functions_interest_data)[colnames(functions_interest_data) != function_interest ]],list(functions_interest_data[,function_interest]), FUN=sum)
+colnames(functions_interest_data)[colnames(functions_interest_data) == 'Group.1'] <- function_interest
+  
+```
+
+### Aggregating same functions
+
+Depending on the type of function of interest, sometimes a same row describe different functions. It's because the annotation at the first place was double, triple, ... . So we need to separate the rows by their categories but the separator depends of the type of function, we use an if-loop to go through each case.
+
+```{r}
+
+if (function_interest == "COG_category") {
+  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = "", convert = TRUE)
+  
+  functions_interest_data_sum[, function_interest][functions_interest_data_sum[, function_interest]==""] <- NA
+
+  functions_interest_data_sum = na.omit(functions_interest_data_sum)
+
+} else if (function_interest == "GOs" | function_interest == "EC" | function_interest == "KEGG_ko" | function_interest == "KEGG_Pathway" | function_interest == "KEEG_Reaction" | function_interest == "CAZy" | function_interest == "PFAMs") {
+  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = ",", convert = TRUE)
+}
+
+```
+
+Relative abundances stay the same for separate rows, we have re-sum the relative abundances by the name of the function. We have dropped duplicated rows which present a NA value in the function name (problem only with the manner of the COG_category was created in the raw data).
+
+```{r}
+
+# Summing columns by the name of the function in a dataframe
+functions_interest_final_dataframe = aggregate(x = functions_interest_data_sum[, colnames(functions_interest_data_sum)[colnames(functions_interest_data_sum) != function_interest]], by = functions_interest_data_sum[, function_interest], FUN=sum)
+
+functions_interest_final_dataframe[(grepl("-", functions_interest_final_dataframe[,function_interest])),function_interest] <- 'Unclassified'
+
+
+```
+
+### Removing useless variables
+
+Clean up the environment to remove useless variables. Optional step.
+
+```{r}
+rm(list = c("functions_interest_data","functions_interest_data_sum"))
+```
+
+## Plotting heatmap for the selected functions
+
+### Importing the database for the correspondence
+
+We use a database to get the correspondence between the code in the data to a meaningful name. The user can choose which database will be use for a selected function.
+
+```{r}
+
+if (function_interest == "COG_category")  {
+  functions_name_corresp = read.csv("../ressources/functions_COG_category.csv", sep = ";")
+} else if (function_interest == "GOs")    {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+} else if (function_interest == "EC")     {
+  functions_name_corresp = read.csv("../ressources/EC_equivalences_no_unknown.csv", sep = ";")
+} else if (function_interest == "KEGG_ko")        {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+} else if (function_interest == "KEGG_Pathway")   {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+} else if (function_interest == "KEEG_Reaction")  {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+} else if (function_interest == "CAZy")   {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+} else if (function_interest == "PFAMs")  {
+  functions_name_corresp = read.csv("../ressources/.csv", sep = ";")
+}
+```
+
+### Reshaping the data for the heatmap
+
+A heatmap needs a certain shape for the data : four columns with the name of the function, its relative abundance per individuals and the category of the piglet (control or colistin).
+
+```{r}
+
+reshaped_functions = data.frame(matrix(nrow = 0, ncol = 4))
+colnames(reshaped_functions) = c(function_interest,"Relative_abundance","Pig_name","Category")
 
 for (name_pig in name_sample) {
-  reshaped_pure_functions_pig = data.frame(functions_rel_abd_sum$COG_cat, functions_rel_abd_sum[colnames(functions_rel_abd_sum) == name_pig])
-  reshaped_pure_functions_pig['pig'] = rep(name_pig, length(functions_rel_abd_sum$COG_cat))
-  reshaped_pure_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(functions_rel_abd_sum$COG_cat))
-  colnames(reshaped_pure_functions_pig)[colnames(reshaped_pure_functions_pig) == name_pig] = 'relative_abundance'
-  reshaped_pure_functions = merge(reshaped_pure_functions, reshaped_pure_functions_pig, all = TRUE, by.y = c("functions_rel_abd_sum.COG_cat","relative_abundance","pig","category"), by.x = c("COG_cat","Relative_abundance","Pig_name", "Category"))
+  reshaped_functions_pig = data.frame(functions_interest_final_dataframe[,function_interest], functions_interest_final_dataframe[colnames(functions_interest_final_dataframe) == name_pig])
+  reshaped_functions_pig['pig'] = rep(name_pig, length(functions_interest_final_dataframe[,function_interest]))
+  reshaped_functions_pig['category'] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(functions_interest_final_dataframe[,function_interest]))
+  colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] = 'relative_abundance'
+  reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c("functions_interest_final_dataframe...function_interest.","relative_abundance","pig","category"), by.x = c(function_interest,"Relative_abundance","Pig_name", "Category"))
 }
-reshaped_pure_functions = reshaped_pure_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
-reshaped_pure_functions$COG_cat = name_pure_functions_letter$Definition[match(reshaped_pure_functions$COG_cat, name_pure_functions_letter$COG_category)]
-reshaped_pure_functions$COG_cat = replace_na(reshaped_pure_functions$COG_cat,"Unclassified")
-
-ggplot(reshaped_pure_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
-  geom_tile(colour = "white", size = 0.5) +
-  scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_pure_functions$Relative_abundance), max(reshaped_pure_functions$Relative_abundance)),
-                       direction = -1) +
-  scale_y_discrete(expand=c(0, 0))+
-  scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Sum of relative abundance", title = "Sum of relative abundance of functions by pig")+
-  theme_grey(base_size=12)+
-  theme(line = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x.bottom = element_text(face="bold.italic"),
-        axis.text.y = element_text(face="bold.italic"),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border=element_blank(),
-        legend.text=element_text(face="bold", size = 15),
-        plot.title = element_text(face="bold", size = 20),
-        legend.title = element_text(face="bold", size = 15),
-        legend.key.size = unit(2, "cm"),
-        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
-        strip.text.x = element_text(face = "bold", size = 15))+
-  facet_grid(cols = vars(factor(reshaped_pure_functions$Category, levels = c("Control", "Colistin"))),
-             scales = "free",
-             space = "free",
-             labeller = )
-scale = 200
-ggsave(filename = "../export/HM_pure_functions.png",
-       width = 16*scale,
-       height = 18*scale,
-       units = "px",
-       dpi=200)
-
-
 
 ```
 
-A second heatmap is created, with thee unknown datas removed.
+Now we rename the piglet for a shorter name, make the correspondence with the database and rename functions with NA (former "-" functions).
 
 ```{r}
-reshaped_pure_functions_no_unknown = reshaped_pure_functions[-grep(pattern = 'Function unknown|Unclassified', reshaped_pure_functions$COG_cat),]
 
-ggplot(reshaped_pure_functions_no_unknown[], aes(Pig_name, reorder(COG_cat, Relative_abundance), fill= Relative_abundance)) +
+reshaped_functions = reshaped_functions %>% mutate(Pig_name = gsub("(\\D)*", "", Pig_name))
+
+reshaped_functions[,function_interest] = functions_name_corresp$Definition_function[match(reshaped_functions[,function_interest], functions_name_corresp$Code_function)]
+
+reshaped_functions[,function_interest] = replace_na(reshaped_functions[,function_interest],"Unclassified")
+
+```
+
+### Plotting heatmaps
+
+```{r}
+
+#definition of the value to print on the color scale
+my_breaks = c(1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1)
+
+ggplot(reshaped_functions, aes(Pig_name, reorder(reshaped_functions[,function_interest], reshaped_functions$Relative_abundance), fill= Relative_abundance)) +
   geom_tile(colour = "white", size = 0.5) +
-  scale_fill_distiller(palette = "Spectral",
-                       limits = c(min(reshaped_pure_functions_no_unknown$Relative_abundance), max(reshaped_pure_functions_no_unknown$Relative_abundance)),
-                       direction = -1) +
+  scale_fill_gradientn(name = "count",# definition of the color gradient.
+                    trans = "log", #chosing a logarythmic color scale
+                    breaks = my_breaks, 
+                    labels = my_breaks,
+                    na.value = "#43A3B9",# plotting the 0 in the lowest color of the gradient
+                    colours = c("#43A3B9",  "#D0EC97", "#FFFFBF", "#FD945D", "#DC4E51", "#370303")) +
   scale_y_discrete(expand=c(0, 0))+
   scale_x_discrete(expand=c(0, 0))+
-  labs(fill="Sum of relative abundance", title = "Sum of relative abundance of functions by pig without unknown functions")+
+  labs(fill="Sum of relative abundance", title = paste("Sum of relative abundance of", function_interest, "by piglet"))+ 
   theme_grey(base_size=12)+
   theme(line = element_blank(),
         axis.ticks.x = element_blank(),
@@ -229,17 +330,72 @@ ggplot(reshaped_pure_functions_no_unknown[], aes(Pig_name, reorder(COG_cat, Rela
         legend.key.size = unit(2, "cm"),
         strip.text.y = element_text(angle = 0, face = "bold", size = 15),
         strip.text.x = element_text(face = "bold", size = 15))+
-  facet_grid(cols = vars(factor(reshaped_pure_functions_no_unknown$Category, levels = c("Control", "Colistin"))),
+  facet_grid(cols = vars(factor(reshaped_functions$Category, levels = c("Control", "Colistin"))),
              scales = "free",
              space = "free",
              labeller = )
 scale = 200
-ggsave(filename = "../export/HM_pure_functions_no_unkown.png",
+ggsave(filename = paste("../export/HM_functions_", function_interest, ".png", sep = ""),
        width = 16*scale,
        height = 18*scale,
        units = "px",
        dpi=200)
+
+
 ```
+
+A second heatmap is created, with the unknown data removed.
+
+```{r}
+reshaped_functions_no_unknown = reshaped_functions[-grep(pattern = 'unknown|Unclassified', reshaped_functions[,function_interest]),]
+
+ggplot(reshaped_functions_no_unknown, aes(Pig_name, reorder(reshaped_functions_no_unknown[,function_interest], reshaped_functions_no_unknown$Relative_abundance), fill= Relative_abundance)) +
+  geom_tile(colour = "white", size = 0.5) +
+  scale_fill_gradientn(name = "count",# definition of the color gradient.
+                    trans = "log", #chosing a logarythmic color scale
+                    breaks = my_breaks, 
+                    labels = my_breaks,
+                    na.value = "#43A3B9",# plotting the 0 in the lowest color of the gradient
+                    colours = c("#43A3B9",  "#D0EC97", "#FFFFBF", "#FD945D", "#DC4E51", "#370303")) +
+  scale_y_discrete(expand=c(0, 0))+
+  scale_x_discrete(expand=c(0, 0))+
+  labs(fill="Sum of relative abundance", title = paste("Sum of relative abundance of", function_interest, "by piglet without unknown functions"))+ 
+  theme_grey(base_size=12)+
+  theme(line = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x.bottom = element_text(face="bold.italic"),
+        axis.text.y = element_text(face="bold.italic"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border=element_blank(),
+        legend.text=element_text(face="bold", size = 15),
+        plot.title = element_text(face="bold", size = 20),
+        legend.title = element_text(face="bold", size = 15),
+        legend.key.size = unit(2, "cm"),
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text(face = "bold", size = 15))+
+  facet_grid(cols = vars(factor(reshaped_functions_no_unknown$Category, levels = c("Control", "Colistin"))),
+             scales = "free",
+             space = "free",
+             labeller = )
+scale = 200
+ggsave(filename = paste("../export/HM_functions_", function_interest, "_no_unknown.png", sep = ""),
+       width = 16*scale,
+       height = 18*scale,
+       units = "px",
+       dpi=200)
+
+```
+
+### Removing useless variables for another function
+
+If the user wants to re-run the production of heat maps, he needs to run the following command and go back to the point [Getting dataframe for the selected function].
+
+```{r}
+rm(list = c("functions_interest_final_dataframe","functions_name_corresp", "reshaped_functions", "reshaped_functions_no_unknown", "reshaped_functions_pig", "function_interest", "my_breaks", "scale"))
+```
+
+## 
 
 #### B] To get the enzymes data
 
