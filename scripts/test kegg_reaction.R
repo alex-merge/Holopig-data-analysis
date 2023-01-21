@@ -91,12 +91,30 @@ dataframe_pig_cat = data.frame(transposed_cat_pig)
 names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
 dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
 
+#functions_rel_abd = tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')
+#functions_rel_abd = functions_rel_abd[order(functions_rel_abd$Sum),]
+#functions_rel_abd = top_n(functions_rel_abd,60)
+#functions_rel_abd = functions_rel_abd %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
+
+
 functions_rel_abd = tidyr::separate_rows(functions_rel_abd,COG_cat,sep =',')
-functions_rel_abd = functions_rel_abd[order(functions_rel_abd$Sum),]
-functions_rel_abd = top_n(functions_rel_abd,60)
-functions_rel_abd = functions_rel_abd %>% select(-c(Sum)) #Exclusion of the sum column (useless in the new dataframe)
+#functions_rel_abd = functions_rel_abd[order(functions_rel_abd$Sum),]
+
+######
+functions_rel_abd_sum = separate_rows(functions_rel_abd, COG_cat, sep = ",", convert = TRUE)
+functions_rel_abd_sum = functions_rel_abd_sum[(grepl(".{+}", functions_rel_abd_sum$COG_cat)),]
+functions_rel_abd_sum = aggregate(functions_rel_abd_sum[, colnames(functions_rel_abd_sum)[colnames(functions_rel_abd_sum) != 'COG_cat']], list(functions_rel_abd_sum$COG_cat), FUN=sum)
+colnames(functions_rel_abd_sum)[colnames(functions_rel_abd_sum) == 'Group.1'] <- 'COG_cat'
+functions_rel_abd = functions_rel_abd_sum
+######
 
 
+functions_rel_abd_ordered = order(rowMeans(functions_rel_abd[,-1]), decreasing = TRUE)
+
+
+functions_rel_abd = functions_rel_abd[functions_rel_abd_ordered[1:100],]
+
+#functions_rel_abd = top_n(functions_rel_abd,100)
 ##########################################HEATMAP##################################################
 
 # SECOND HEATMAP OF PURE FUNCTIONS + MELTED FUNCTIONS
@@ -152,7 +170,7 @@ ggplot(reshaped_all_functions, aes(Pig_name, reorder(COG_cat, Relative_abundance
              labeller = )
 scale = 200
 
-ggsave(filename = "export/GOs.png",
+ggsave(filename = "export/kegg_reaction.png",
        width = 16*scale,
        height = 18*scale,
        units = "px",
