@@ -82,7 +82,7 @@ diff_test = function(data){
 
 ## III. Heatmap
 
-We will create a heatmap of relative abundances of reads per taxon and per individual while separating the groups (Colistine or control).
+We will create a heatmap of relative abundances of reads per taxon and per individual while separating the groups (Colistin or control).
 
 ```{r}
 library(ggplot2)
@@ -553,9 +553,11 @@ vertices = data.frame(
 vertices = merge(x = vertices, y = phylo_data[c("name","abund")], 
                  by = "name", all = TRUE)
 vertices$group = edges$from[ match( vertices$name, edges$to ) ]
-vertices$labels = vertices$name
-bad_rows = rownames(subset(vertices, abund < 0.01 | is.na(abund)))
-vertices[bad_rows,]$labels = ""
+
+
+#vertices$labels = vertices$name
+#bad_rows = rownames(subset(vertices, abund < 0.01 | is.na(abund)))
+#vertices[bad_rows,]$labels = ""
 
 ```
 
@@ -570,7 +572,7 @@ mygraph <- graph_from_data_frame(edges, vertices=vertices)
 ggraph(mygraph, layout = 'dendrogram', circular = T) + 
   geom_edge_diagonal(colour="grey") +
   scale_edge_colour_distiller(palette = "RdPu") +
-  geom_node_text(aes(x = x*1.3, y=y*1.1, filter = leaf, label=labels, colour=group), size=10, alpha=1, check_overlap = F, show.legend = F) +
+  geom_node_text(aes(x = x*1.3, y=y*1.1, filter = leaf, label=name, colour=group), size=10, alpha=1, check_overlap = F, show.legend = F) +
   geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abund, alpha=0.2)) +
   guides(colour = FALSE, alpha = FALSE)+
   scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
@@ -595,6 +597,28 @@ ggsave(filename = "../export/T_taxonomy_control2.png",
        dpi=200)
 ```
 
+New version
+
+```{r}
+A = ggraph(mygraph, layout = 'dendrogram', circular = T) + 
+  geom_edge_diagonal(colour="grey") +
+  scale_edge_colour_distiller(palette = "RdPu") +
+  geom_node_text(aes(x = x*1.3, y=y*1.1, filter = leaf, label=name, colour=group), size=10, alpha=1, check_overlap = F, show.legend = F) +
+  geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=abund, alpha=0.2)) +
+  guides(colour = FALSE, alpha = FALSE)+
+  scale_colour_manual(values= rep( brewer.pal(9,"Paired") , 30)) +
+  scale_size_continuous( range = c(0.1,20) ) +
+  labs(title = "Prominent genus in control group",
+       size = "Summed\nrelative abundance\nacross samples")+
+  theme(
+    #legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm"),
+    panel.background = element_rect(fill = "white"),
+    plot.title = element_text(face="bold", size = 25, hjust = 0.5, vjust = 0)
+  ) +
+  expand_limits(x = c(-1.3, 1.3), y = c(-1.3, 1.3))
+```
+
 ### 2) Colistin tree
 
 This is the exact same script as the previous part except that we select the "Colistin" group.
@@ -615,7 +639,7 @@ for (k in levels(filtered_data$genus)){
 }
 cross_df$abund = sums
 
-phylo_data = subset(filtered_data, ind == "2")[1:7]
+phylo_data = subset(filtered_data, piglet == "2")[1:7]
 colnames(phylo_data) = paste0("level", seq(7))
 phylo_data = phylo_data[!duplicated(phylo_data), ] # Removing the duplicated rows
 

@@ -15,7 +15,7 @@ library(tidyr)
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
                    sep="\t",
                    stringsAsFactors = TRUE,
-                   #nrow = 1000,
+                   #nrow = 100,
                    na.strings = c("NA", "-"))
 ```
 
@@ -73,6 +73,7 @@ metabo_df = read.csv(file="../raw_data/HOLOPIG METABOLITES clean.csv",
                     na.strings = "NA",
                     check.names = F)
 metabo_df = subset(metabo_df, select = -c(Group)) ## Removing "Group" column
+#metabo_df = metabo_df[,1:100]
 
 metabo_df$Piglet = paste0("Piglet_",as.character(metabo_df$Piglet)) ## Renaming piglets
 metabo_names = colnames(metabo_df[-1]) ## Saving the name of metabolites for later
@@ -88,19 +89,31 @@ data = merge(gene_df, metabo_df, by = "Piglet", all = T) ## Merging dataframes b
 data[,-1] = as.numeric(unlist(data[,-1])) ## Converting characters to numeric
 data = Filter(function(x)!all(is.na(x)), data) ## Removing empty columns
 
+rm(list=c("gene_df", "metabo_df"))
+
 head(data)
 ```
 
 # Correlating *data* data.frame
 
 ```{r}
-cor_data = as.data.frame( cor(data[,-1], method = "spearman") )
+library("psych")
+## suppressWarnings is here to not show warnings about standard deviation being null (which slows down the function)
+#cor_res = suppressWarnings(corr.test(data[,-1], method = "spearman", ci = F))
+#cor_data = as.data.frame( cor_res$r )
+#cor_pval = as.data.frame( cor_res$p )
+
+cor_data = as.data.frame(cor(data[, -1], method = "spearman"))
 head(cor_data)
 ```
 
 ```{r}
 cor_data$metabolites <- rownames(cor_data)
 cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)]
+
+#cor_pval$metabolites <- rownames(cor_pval)
+#cor_pval = cor_pval[c(dim(cor_pval)[2], 1:(dim(cor_pval)[2])-1)]
+
 head(cor_data)
 ```
 
@@ -108,6 +121,11 @@ head(cor_data)
 library(reshape2)
 
 melted_data = melt(cor_data, id = "metabolites") ## Melting the data.frame
+#melted_pvalues = melt(cor_pval, id = "metabolites")
+#colnames(melted_pvalues)[3] = "pvalue"
+
+#melted_data = merge(melted_data, melted_pvalues, by = c("metabolites", "variable"))
+
 melted_data = drop_na(melted_data) ## Removing empty columns
 melted_data$metabolites = as.factor(melted_data$metabolites) 
 colnames(melted_data)[2] = "genes"
@@ -129,18 +147,34 @@ write.table(melted_data,
             sep="\t")
 ```
 
-# Filtering metabolites and genes according to their correlation mean.
+# Filtering metabolites and genes
+
+## Filtering on correlation p-values
+
+```{r}
+filtered_melted_data = subset(melted_data, pvalue >= 0.05) # Keeping only significative results
+
+head(filtered_melted_data)
+```
+
+We will plot the distribution of correlation values.
+
+```{r}
+hist(abs(filtered_melted_data$value), 
+     breaks = 40)
+```
+
+## Filtering on correlation values
 
 In order to do that, we filter the `melted_data` data frame to keep rows if the correlation value is more than the threshold or less than the negative threshold.
 
 ```{r}
 
-thres_keep = 0.6
+thres_keep = 0
 
-metabo_gene_thres = melted_data %>% subset(melted_data$value <= -thres_keep | melted_data$value >= thres_keep)
-colnames(metabo_gene_thres) = c("metabolite", "gene", "value")
+filtered_melted_data = melted_data %>% subset(melted_data$value <= -thres_keep | melted_data$value >= thres_keep)
 
-head(metabo_gene_thres)
+head(filtered_melted_data)
 
 ```
 
@@ -156,30 +190,7 @@ We plot the threshold on histograms to see where it lands
 
 print(paste("Number of correlation with a value superior to the threshold (", thres_keep, ") : ", sum(metabo_gene_thres$value >= thres_keep)))
 
-print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(metabo_gene_thres$value <= -thres_keep)))
-
-# ggplot(melted_data, aes(x=value)) + 
-#   geom_histogram(binwidth=0.10) +
-#   geom_vline(xintercept = thres_keep, linetype = "dashed", linewidth = 1.5, 
-#              color = "red")+
-#   geom_label(label = paste0("Threshold\n", thres_keep), 
-#              x = thres_keep, y = 4, 
-#              color = "red")+
-#   geom_label(label = paste0("Threshold\n", -thres_keep), 
-#              x = -thres_keep, y = 4, 
-#              color = "red")+
-#   xlab("Correlation values")+
-#   ggtitle("Distribution of correlation values")
-
-```
-
-Applying the filter on the data.frame.
-
-```{r}
-
-filtered_melted_data = metabo_gene_thres
-
-head(filtered_melted_data)
+print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(filtered_melted_data$value <= -thres_keep)))
 ```
 
 We save the filtered dataframe.
