@@ -55,6 +55,8 @@ transposed_cat_pig = t(data_cat_sample)
 dataframe_pig_cat = data.frame(transposed_cat_pig)
 names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
 dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now
+
+head(dataframe_pig_cat)
 ```
 
 ## Settings to load the preprocessed data
@@ -113,6 +115,7 @@ To treat the data is an easier way, we have split it in different files and now 
 Creating empty data frame. Will be use in the for-loop to store the filtered data.
 
 ```{r}
+
 columns_filtered = c(name_sample, "COG_category", "GOs", "EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", "CAZy", "PFAMs")
 data_filtered = data.frame(matrix(nrow = 0, ncol = length(columns_filtered)))
 colnames(data_filtered) = columns_filtered
@@ -149,13 +152,18 @@ for (file in directory) {
 
 }
 
+head(data_filtered)
 ```
 
 ### Exportation of the filtered data
 
 ```{r}
 
-write.table(data_filtered, file = "../refined_data/Quantifications_and_functional_annotations_filtered", sep = '\t', row.names = FALSE, quote = FALSE)
+write.table(data_filtered, 
+            file = "../refined_data/Quantifications_and_functional_annotations_filtered.csv", 
+            sep = ',', 
+            row.names = FALSE, 
+            quote = FALSE)
 
 ```
 
@@ -178,14 +186,14 @@ The user needs to fill the type of function he has interest for. There is predet
 ```{r}
 #choose the function of interest, several choices but only one at the time
 
-#function_interest = c("COG_category")    #Working
+function_interest = c("COG_category")    #Working
 #function_interest = c("GOs")             #Working
 #function_interest = c("KEGG_ko")         #Working
 #function_interest = c("KEGG_Pathway")    #Working
 #function_interest = c("KEGG_Module")     #Working
 #function_interest = c("KEGG_Reaction")   #Working
 #function_interest = c("CAZy")            #Working
-function_interest = c("PFAMs")
+#function_interest = c("PFAMs")
 #function_interest = c("EC")              #Working
 
 ```
@@ -212,19 +220,19 @@ The COG_category creates empty cell (because of the raw data) and we regroup the
 ```{r}
 
 if (function_interest == "COG_category") {
-  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = "", convert = TRUE)
+  functions_interest_data_sum = separate_rows(functions_interest_data, all_of( function_interest), sep = "", convert = TRUE)
   
-  functions_interest_data_sum[, function_interest][functions_interest_data_sum[, function_interest]==""] <- NA
+  functions_interest_data_sum[, function_interest][functions_interest_data_sum[, function_interest]==""] = NA
 
   functions_interest_data_sum = na.omit(functions_interest_data_sum)
 
 } else if (function_interest == "EC"){
-  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = ",", convert = TRUE)
+  functions_interest_data_sum = separate_rows(functions_interest_data, all_of( function_interest), sep = ",", convert = TRUE)
   
   functions_interest_data_sum[[function_interest]] = str_remove(functions_interest_data_sum[[function_interest]], "([:punct:][:digit:]*)$")
 
 } else if (function_interest == "GOs" | function_interest == "KEGG_ko" | function_interest == "KEGG_Pathway" | function_interest == "KEGG_Reaction" | function_interest == "CAZy" | function_interest == "PFAMs" | function_interest == "KEGG_Module") {
-  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = ",", convert = TRUE)
+  functions_interest_data_sum = separate_rows(functions_interest_data,all_of( function_interest), sep = ",", convert = TRUE)
 }
 
 ```

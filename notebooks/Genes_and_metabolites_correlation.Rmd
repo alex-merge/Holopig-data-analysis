@@ -131,68 +131,53 @@ write.table(melted_data,
 
 # Filtering metabolites and genes according to their correlation mean.
 
-In order to do that, we aggregate the correlation values according to the metabolite first and then the gene. That way we compute means for correlation according a given metabolite across genes and then a given gene across metabolites.
+In order to do that, we filter the `melted_data` data frame to keep rows if the correlation value is more than the threshold or less than the negative threshold.
 
 ```{r}
-metabo_means = aggregate(abs(melted_data$value), by = list(melted_data$metabolites),
-                          FUN = mean)
-colnames(metabo_means) = c("metabolite", "mean")
 
-gene_means = aggregate(abs(melted_data$value), by = list(melted_data$genes),
-                        FUN = mean)
-colnames(gene_means) = c("gene", "mean")
+thres_keep = 0.6
 
-head(gene_means)
+metabo_gene_thres = melted_data %>% subset(melted_data$value <= -thres_keep | melted_data$value >= thres_keep)
+colnames(metabo_gene_thres) = c("metabolite", "gene", "value")
+
+head(metabo_gene_thres)
+
 ```
 
 We then subset *melted_data* using thresholds on both genes and metabolites. For that we will plot the distribution of correlation means.
 
 ```{r}
 library(ggplot2)
-
-proportion = 0.05
-
-proportion = 1-proportion
-
-## Getting the quantile as threshold
-thres_genes = quantile(gene_means$mean, prob=c(proportion), type=1)
-thres_metabo = quantile(metabo_means$mean, prob=c(proportion), type=1)
 ```
 
 We plot the threshold on histograms to see where it lands
 
 ```{r}
-ggplot(gene_means, aes(x=mean)) + 
-  geom_histogram(binwidth=0.01) +
-  geom_vline(xintercept = thres_genes, linetype = "dashed", linewidth = 1.5, 
-             color = "red")+
-  geom_label(label = paste0("Threshold\n",round(thres_genes, 3)), 
-             x = thres_genes, y = 4, 
-             color = "red")+
-  xlab("Correlation mean")+
-  ggtitle("Distribution of correlation means across genes")
-```
 
-```{r}
-ggplot(metabo_means, aes(x=mean)) + 
-  geom_histogram(binwidth=0.01) +
-  geom_vline(xintercept = thres_metabo, linetype = "dashed", linewidth = 1.5, 
-             color = "red")+
-  geom_label(label = paste0("Threshold\n",round(thres_metabo, 3)), 
-             x = thres_metabo, y = 4, 
-             color = "red")+
-  xlab("Correlation mean")+
-  ggtitle("Distribution of correlation means across metabolites")
+print(paste("Number of correlation with a value superior to the threshold (", thres_keep, ") : ", sum(metabo_gene_thres$value >= thres_keep)))
+
+print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(metabo_gene_thres$value <= -thres_keep)))
+
+# ggplot(melted_data, aes(x=value)) + 
+#   geom_histogram(binwidth=0.10) +
+#   geom_vline(xintercept = thres_keep, linetype = "dashed", linewidth = 1.5, 
+#              color = "red")+
+#   geom_label(label = paste0("Threshold\n", thres_keep), 
+#              x = thres_keep, y = 4, 
+#              color = "red")+
+#   geom_label(label = paste0("Threshold\n", -thres_keep), 
+#              x = -thres_keep, y = 4, 
+#              color = "red")+
+#   xlab("Correlation values")+
+#   ggtitle("Distribution of correlation values")
+
 ```
 
 Applying the filter on the data.frame.
 
 ```{r}
-selected_genes = subset(gene_means, mean >= thres_genes)$gene
-selected_metabo = subset(metabo_means, mean >= thres_metabo)$metabolite
 
-filtered_melted_data = subset(melted_data, 
-                              metabolites %in% selected_metabo | genes %in% selected_genes)
+filtered_melted_data = metabo_gene_thres
 
 head(filtered_melted_data)
 ```
@@ -210,7 +195,11 @@ write.table(filtered_melted_data,
 # Creating the heatmap
 
 ```{r}
-ggplot(filtered_melted_data, aes(genes, metabolites, fill= value)) +
+
+filtered_melted_data_ordered = order(filtered_melted_data[,-c(1,2)], decreasing = TRUE)
+filtered_melted_data = filtered_melted_data[filtered_melted_data_ordered[1:100],]
+
+ggplot(filtered_melted_data, aes(gene, metabolite, fill= value)) +
   geom_tile(colour = "white", size = 0.5)+
   scale_fill_gradientn(name = "Correlation coefficient",# definition of the color gradient.
                        #trans = "log10", #chosing a logarythmic color scale
