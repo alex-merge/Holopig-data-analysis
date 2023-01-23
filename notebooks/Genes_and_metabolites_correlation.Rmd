@@ -19,11 +19,33 @@ gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.
                    na.strings = c("NA", "-"))
 ```
 
+
+
+## /!\ WARNING !!!!
+If we want to use the KEGG_ko instead of the preferred names: execute this :
+```{r}
+Use_kegg = TRUE
+```
+else (if we want to use the prefered names), execute this:
+```{r}
+Use_kegg = FALSE
+```
+ONLY ONE OF THE TWO CELLS ABOVE MUST BE EXECUTED
+
+
+
+
 After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" which seems to contain names for matched genes.
 
 ```{r}
+if (Use_kegg) {
+  Column_of_interest = 47
+} else {
+  Column_of_interest = 44
+}
+
 dim_raw = dim(gene_df)[1]
-gene_df = gene_df[,c(2:35,44)]
+gene_df = gene_df[,c(2:35,Column_of_interest)]
 
 ## Computing relative abundance
 for (i in 1:34){
@@ -32,6 +54,18 @@ for (i in 1:34){
     gene_df[,i] = gene_df[,i]/sum_col
   }
 }
+
+
+if (Use_kegg) {
+  gene_df = separate_rows(gene_df,all_of( "KEGG_ko"), sep = ",", convert = TRUE)
+  
+  functions_name_corresp = read.csv("../ressources/KEGG_ko_final.csv", sep = ";")
+  
+  gene_df$KEGG_ko = functions_name_corresp$Definition_function[match(gene_df$KEGG_ko, functions_name_corresp$Code_function)]
+  
+
+}
+
 
 gene_df = drop_na(gene_df)
 print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(gene_df)[1],")"))
