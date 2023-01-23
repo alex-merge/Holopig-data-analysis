@@ -41,14 +41,49 @@ ordered_gene_contig_meta <- gene_contig_meta[order(gene_contig_meta$Correlation,
 
 
 
+### RESEAU
+
+ordered_gene_cor <- gene_cor_df[order(gene_cor_df$Correlation, decreasing = T), ]
 
 
 
+ordered_gene_cor_filtered = ordered_gene_cor[1:100,]
+nodes <- data.frame(
+  name=c(unique(ordered_gene_cor_filtered[,1]), unique(ordered_gene_cor_filtered[,2])),
+  carac=c( rep("metabolite",length(unique(ordered_gene_cor_filtered[,1]))), rep("gene",length(unique(ordered_gene_cor_filtered[,2]))))
+)
 
 
+library(igraph)
+
+# create the network object
+network <- graph_from_data_frame(d=ordered_gene_cor_filtered[,1:2],vertices=nodes, directed=F) 
+
+# Make a palette of 3 colors
+library(RColorBrewer)
+coul  <- brewer.pal(3, "Set1") 
+
+# Create a vector of color
+my_color <- coul[as.numeric(as.factor(V(network)$carac))]
 
 
+# plot it
+aa = plot(network,
+     edge.width= scale(ordered_gene_cor[,3], center = TRUE, scale = TRUE)+ 2,
+     #layout=layout.circle,
+     vertex.color = my_color )
 
 
+scale = 200 # Set the scale for the exported image
+
+save.image(file = "Network_100.Rdata",
+           compress = F
+       #width = 16*scale,
+       #height = 18*scale,
+       #units = "px",
+       #dpi=200
+)
 
 
+bb = png(file = "Network_100.Rdata")
+save(bb, file = "Network_100.png")
