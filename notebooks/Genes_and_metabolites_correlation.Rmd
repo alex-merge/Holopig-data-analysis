@@ -13,10 +13,10 @@ library(tidyr)
 
 ```{r}
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
-              sep="\t",
-              stringsAsFactors = TRUE,
-              #nrow = 1000,
-              na.strings = c("NA", "-"))
+                   sep="\t",
+                   stringsAsFactors = TRUE,
+                   #nrow = 1000,
+                   na.strings = c("NA", "-"))
 ```
 
 After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" which seems to contain names for matched genes.
