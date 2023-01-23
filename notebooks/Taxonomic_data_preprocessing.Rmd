@@ -101,7 +101,7 @@ abundance_df = subset(abundance_df, Mean >= thres)
 We got a final manipulation to do. In order to make the heatmap and the boxplot, the category needs to be a factor (1 column). So the abundance needs to be aggregated for each row and each sample which will lead to a 2649\*34 = 90066 rows (rows times number of samples).
 
 ```{r}
-base_taxo = abundance_df[, c(1:8, ncol(abundance_df)-1)]
+base_taxo = abundance_df[,1:8]
 ## defining the group of each individual
 category = c("Control", "Colistin", "Control", "Control", "Control", "Control",
               "Colistin", "Colistin", "Control", "Colistin", "Colistin", "Control",
