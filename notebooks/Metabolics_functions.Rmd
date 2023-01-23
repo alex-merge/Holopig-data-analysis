@@ -161,7 +161,7 @@ head(data_filtered)
 
 write.table(data_filtered, 
             file = "../refined_data/Quantifications_and_functional_annotations_filtered.csv", 
-            sep = ',', 
+            sep = ';', 
             row.names = FALSE, 
             quote = FALSE)
 
@@ -186,10 +186,10 @@ The user needs to fill the type of function he has interest for. There is predet
 ```{r}
 #choose the function of interest, several choices but only one at the time
 
-function_interest = c("COG_category")    #Working
+#function_interest = c("COG_category")    #Working
 #function_interest = c("GOs")             #Working
 #function_interest = c("KEGG_ko")         #Working
-#function_interest = c("KEGG_Pathway")    #Working
+function_interest = c("KEGG_Pathway")    #Working
 #function_interest = c("KEGG_Module")     #Working
 #function_interest = c("KEGG_Reaction")   #Working
 #function_interest = c("CAZy")            #Working
@@ -248,6 +248,17 @@ functions_interest_final_dataframe[(grepl("-", functions_interest_final_datafram
 
 ```
 
+### Saving the final data frame
+
+```{r}
+
+write.table(functions_interest_final_dataframe, 
+            file = paste("../refined_data/Function_", function_interest, "_dataframe.csv", sep = ""), 
+            sep = ';', 
+            row.names = FALSE, 
+            quote = FALSE)
+```
+
 ### Ordering functions per the mean of the relative abundance
 
 We select the 100th first higher relative abundances for the functions where there are more than 100 items. Exemple : COG_category only contains 24 items max whereas EC can contain oven 6000 items.
@@ -268,7 +279,7 @@ if (nrow(functions_interest_final_dataframe > 100)) {
 Clean up the environment to remove useless variables. Optional step.
 
 ```{r}
-rm(list = c("functions_interest_data","functions_interest_data_sum"))
+rm(list = c("functions_interest_data","functions_interest_data_sum","functions_interest_final_dataframe_ordered"))
 ```
 
 ## Plotting heat maps for the selected functions
@@ -420,5 +431,5 @@ ggsave(filename = paste("../export/HM_functions_", function_interest, "_no_unkno
 If the user wants to re-run the production of heat maps, he needs to run the following command and go back to the point [Getting a data frame for the selected function].
 
 ```{r}
-rm(list = c("functions_interest_final_dataframe","functions_name_corresp", "reshaped_functions", "reshaped_functions_no_unknown", "reshaped_functions_pig", "function_interest", "my_breaks", "scale", "functions_interest_final_dataframe_ordered"))
+rm(list = c("functions_interest_final_dataframe","functions_name_corresp", "reshaped_functions", "reshaped_functions_no_unknown", "reshaped_functions_pig", "function_interest", "my_breaks", "scale"))
 ```
