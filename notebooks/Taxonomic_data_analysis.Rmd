@@ -112,11 +112,13 @@ filtered_data = subset(data, kingdom %in% selected_classes)
 # remove the rows with at least one NA value to avoid future errors
 filtered_data = drop_na(filtered_data[c("kingdom",taxo_level,"piglet","group","abund")])
 
+tax = filtered_data[,2]
+
+filtered_data = aggregate(. ~  kingdom + tax + piglet + group, data = filtered_data, sum)
+
 # Reordering the rows based on the sum of abundance for a given phylum
 filtered_data[,2] = with(filtered_data, reorder(filtered_data[,2], abund, sum))
 
-#FACULTATIVE : remove abundance that seem aberrant and replace by the second maximal abundance in the colomn
-filtered_data[998,5] = 0; filtered_data[998,5]= max(filtered_data[,5])
 
 head(filtered_data)
 ```
