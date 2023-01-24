@@ -3,7 +3,9 @@ title: "Gene and bacteria correlation"
 output: html_notebook
 ---
 
-# Loading datasets
+# Gene and bacteria correlation
+
+## Loading package
 
 ```{r}
 library(tidyr)
@@ -11,15 +13,19 @@ library(tidyr)
 
 ## Gene dataset
 
+### Importation of gene dataset
+
+We import the raw data frame of genes
+
 ```{r}
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
                    sep="\t",
                    stringsAsFactors = TRUE,
-                   #nrow = 1000,
+                   nrow = 2000,
                    na.strings = c("NA", "-"))
 ```
 
-## Environment variables
+### Manipulations on the gene data set
 
 If we want to use the KEGG_ko instead of the preferred names, set the following to **True** or **T**.
 
@@ -27,7 +33,7 @@ If we want to use the KEGG_ko instead of the preferred names, set the following 
 Use_kegg = F
 ```
 
-After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" which seems to contain names for matched genes.
+After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" (or KEGG_ko in case `Use_kegg = T` ). The column contain names for genes.
 
 ```{r}
 if (Use_kegg) {
@@ -39,6 +45,11 @@ if (Use_kegg) {
 dim_raw = dim(gene_df)[1]
 gene_df = gene_df[,c(2:35,Column_of_interest)]
 
+```
+
+Then we compute the relative abundances.
+
+```{r}
 ## Computing relative abundance
 for (i in 1:34){
   sum_col = sum(gene_df[,i])
@@ -47,7 +58,11 @@ for (i in 1:34){
   }
 }
 
+```
 
+If the `Prefered_name` is use, there is no problem : each row gets one and only one name. BUT if we use the `KEGG_Ko` , sometimes for the same row, several KO are given. So we need to duplicate the rows where there are different KO.
+
+```{r}
 if (Use_kegg) {
   gene_df = separate_rows(gene_df,all_of( "KEGG_ko"), sep = ",", convert = TRUE)
   
@@ -55,19 +70,28 @@ if (Use_kegg) {
   
   gene_df$KEGG_ko = functions_name_corresp$Definition_function[match(gene_df$KEGG_ko, functions_name_corresp$Code_function)]
   gene_df$KEGG_ko = as.factor(gene_df$KEGG_ko)
-  
 
 }
 
+```
+
+Reshaping the data frame by :
+
+-   dropping rows with NA in the `Prefered_name` or the `KEGG_Ko` column
+
+-   renaming piglets and the gene column
+
+-   putting the gene column in the first column (instead of the last one).
+
+```{r}
 gene_df = drop_na(gene_df)
 print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(gene_df)[1],")"))
 
-head(gene_df)
 colnames(gene_df) = c(paste0("Piglet_", seq(34)), "Gene")
-gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] #pour mettre la colonne gène à gauche.
-```
+gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] 
 
-The relative abundances are then computed.
+head(gene_df)
+```
 
 We then aggregate the duplicated genes by row.
 
@@ -82,7 +106,7 @@ head(gene_df)
 Finally, the data.frame is translated.
 
 ```{r}
-gene_df = as.data.frame(t(gene_df)) #on transpose df (indiv en ligne et genes en colonne)
+gene_df = as.data.frame(t(gene_df)) #translating df (i.e. indiv as rows and genes as columns)
 colnames(gene_df) = gene_df[1,]
 gene_df = gene_df[-1,]
 gene_df$Piglet = rownames(gene_df)
@@ -90,7 +114,9 @@ gene_df$Piglet = rownames(gene_df)
 head(gene_df)
 ```
 
-## bacteria dataset
+## Bacteria dataset
+
+### Importation of bacteria dataset
 
 ```{r}
 bacteria_df = read.csv(file="../refined_data/complete_taxonomy_X_sample.csv",
@@ -99,6 +125,13 @@ bacteria_df = read.csv(file="../refined_data/complete_taxonomy_X_sample.csv",
                     na.strings = "NA",
                     check.names = F)
 
+```
+
+### Manipulations on the bacteria dataset
+
+We realize the same treatment as done on the gene dataset : dropping columns, aggregation of rows, renaming columns, translating data frame.
+
+```{r}
 bacteria_df = droplevels.data.frame(subset(bacteria_df, kingdom == "Bacteria",
                                             select = -c(root, kingdom)) )
 bacteria_df = aggregate(bacteria_df[,paste0("abond", seq(34))],
@@ -117,7 +150,9 @@ bacteria_names = colnames(bacteria_df[-1]) ## Saving the name of bacterias for l
 head(bacteria_df)
 ```
 
-## Merging both dataframe
+## Merging both data frames
+
+We merge the dataframes by the Piglet column, shared by both.
 
 ```{r}
 data = merge(gene_df, bacteria_df, by = "Piglet", all = T) ## Merging dataframes by the name of the piglet.
@@ -130,7 +165,9 @@ rm(list=c("gene_df", "bacteria_df"))
 head(data)
 ```
 
-# Correlating *data* data.frame
+## Correlating *data* data.frame
+
+We calculate the correlations between genes and bacteria using a non-parametric method (Spearman).
 
 ```{r}
 cor_data = as.data.frame(cor(data[, -1], method = "spearman"))
@@ -138,12 +175,16 @@ cor_data = as.data.frame(cor(data[, -1], method = "spearman"))
 head(cor_data)
 ```
 
+We put the row names as a variable called `bacteria` because the gene names and the bacteria names have been duplicated because of the correlation command.
+
 ```{r}
 cor_data$bacteria <- rownames(cor_data)
 cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)]
 
 head(cor_data)
 ```
+
+We use the `melt()` function to verbose for each bacteria, all the gene and the associated correlation.
 
 ```{r}
 library(reshape2)
@@ -163,7 +204,7 @@ rm(list=c("cor_data"))
 head(melted_data)
 ```
 
-We then export the current dataframe.
+We then export the current data frame.
 
 ```{r}
 write.table(melted_data, 
@@ -173,9 +214,9 @@ write.table(melted_data,
             sep="\t")
 ```
 
-# Filtering bacterias and genes
+## Filtering bacteria and genes
 
-## Filtering on correlation values
+### Filtering on correlation values
 
 In order to do that, we filter the `melted_data` data frame to keep rows if the correlation value is more than the threshold or less than the negative threshold.
 
@@ -190,7 +231,7 @@ rm(list=c("melted_data"))
 head(filtered_melted_data)
 ```
 
-We then subset *melted_data* using thresholds on both genes and bacteria. For that we will plot the distribution of correlation means.
+We then subset `melted_data` using thresholds on both genes and bacteria. For that we will plot the distribution of correlation means.
 
 ```{r}
 library(ggplot2)
@@ -204,13 +245,20 @@ print(paste("Number of correlation with a value superior to the threshold (", th
 print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(filtered_melted_data$value <= -thres_keep)))
 ```
 
-## Filtering on correlation p-values
+### Filtering on correlation p-values
+
+We create a data frame with the previous filtered rows.
 
 ```{r}
 selected_genes = levels(filtered_melted_data$genes)
 selected_bacteria = levels(filtered_melted_data$bacteria)
 
 tmp_data = data[,c(selected_genes, selected_bacteria)]
+```
+
+We calculate and then associate the p-value of the correlation to the correlation relation.
+
+```{r}
 
 library("psych")
 ## suppressWarnings is here to not show warnings about standard deviation being null (which slows down the function)
@@ -219,6 +267,11 @@ cor_pval = as.data.frame( cor_res$p )
 cor_pval$bacteria <- rownames(cor_pval)
 cor_pval = cor_pval[c(dim(cor_pval)[2], 1:(dim(cor_pval)[2])-1)]
 
+```
+
+We keep correlation between genes and bacteria only if it is significant.
+
+```{r}
 melted_pval = melt(cor_pval, id = "bacteria") ## Melting the data.frame
 
 melted_pval = drop_na(melted_pval) ## Removing empty columns
@@ -235,9 +288,12 @@ rm(list=c("melted_pval", "tmp_data"))
 head(filtered_melted_pval)
 ```
 
+We merge the two data frames in order to get four columns : Bacteria, gene, value of the correlation and the p-value of the correlation
+
 ```{r}
 filtered_melted_data = merge(filtered_melted_data, filtered_melted_pval, 
                              by = c("bacteria", "genes"))
+head(filtered_melted_data)
 ```
 
 We will plot the distribution of correlation values.

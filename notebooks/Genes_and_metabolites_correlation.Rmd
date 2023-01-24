@@ -15,7 +15,7 @@ library(tidyr)
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
                    sep="\t",
                    stringsAsFactors = TRUE,
-                   #nrow = 1000,
+                   nrow = 10000,
                    na.strings = c("NA", "-"))
 ```
 
@@ -63,7 +63,7 @@ print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (
 
 head(gene_df)
 colnames(gene_df) = c(paste0("Piglet_", seq(34)), "Gene")
-gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] #pour mettre la colonne gène à gauche.
+gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] ## Putting the "gene" column first
 ```
 
 The relative abundances are then computed.
@@ -81,7 +81,7 @@ head(gene_df)
 Finally, the data.frame is translated.
 
 ```{r}
-gene_df = as.data.frame(t(gene_df)) #on transpose df (indiv en ligne et genes en colonne)
+gene_df = as.data.frame(t(gene_df)) ## Transposing the data.frame 
 colnames(gene_df) = gene_df[1,]
 gene_df = gene_df[-1,]
 gene_df$Piglet = rownames(gene_df)
@@ -292,6 +292,54 @@ ggsave(filename = "../export/heatmap_correlation_VA.png",
        plot = last_plot(),
        width = 40*scale,
        height = 30*scale,
+       units = "px",
+       dpi=200)
+```
+
+# Correlation graph
+
+The purpose of this section is to create a correlation graph between genes and metabolites that are well correlated.
+
+First, we will show the most correlated variables :
+
+```{r}
+filtered_melted_data$abs_cor = abs(filtered_melted_data$value)
+new_order = order(filtered_melted_data$abs_cor, decreasing = T)
+filtered_melted_data = filtered_melted_data[new_order,]
+head(filtered_melted_data, n = 10)
+```
+
+Based on the best correlated metabolites and genes, we can create a correlation plot.
+
+```{r}
+## Loading libraries
+library(ggplot2)
+library(hrbrthemes)
+
+## Setting the X and Y columns to show
+x_col = "VPS13"
+y_col = "glucosamine-6-phosphate"
+
+##
+ggplot(data, aes(x = data[,x_col]*100, y = data[,y_col]*100))+
+  geom_point()+
+  geom_smooth(method = lm, color = "red", se = F, show.legend = T)+
+  labs(title = paste0("Correlation graph between ", x_col, " and ", y_col),
+       x = paste0("Relative abundance of ", x_col," (%)"),
+       y = paste0("Relative abundance of ", y_col," (%)"))+
+  theme_grey(base_size=12)+
+  theme(plot.title = element_text(face="bold", size = 15))
+```
+
+We can export the previous plot.
+
+```{r}
+scale = 200 # Set the scale for the exported image
+
+ggsave(filename = paste0("../export/correlation_graphs/",x_col,"_X_",y_col,".png"),
+       plot = last_plot(),
+       width = 16*scale,
+       height = 9*scale,
        units = "px",
        dpi=200)
 ```
