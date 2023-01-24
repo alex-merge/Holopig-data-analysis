@@ -121,7 +121,7 @@ filtered_data[998,5] = 0; filtered_data[998,5]= max(filtered_data[,5])
 head(filtered_data)
 ```
 
-Only those columns ar necessary in order to make the heatmap.
+Only those columns are necessary in order to make the heatmap.
 
 We can now plot the heatmap. As there are a lot of small values, we use a logarithmic color scale so they are well separated.
 
@@ -164,7 +164,7 @@ ggplot(filtered_data, aes(piglet, filtered_data[,2], fill= abund)) +
              space = "free")
 ```
 
-Even if this looks awfull in this notebook, the exported image is fine. We then export the image :
+Even if this looks bad in this notebook, the exported image is fine. We then export the image :
 
 ```{r}
 scale = 200 # Set the scale for the exported image
@@ -228,7 +228,7 @@ ggplot(filtered_data, aes(piglet, filtered_data[,2], fill= abund)) +
              space = "free")
 ```
 
-Finally, we export the graph.
+Finally, we export the graph for a better quality.
 
 ```{r}
 scale = 200 # Set the scale for the exported image
@@ -297,6 +297,8 @@ ggplot(filtered_data, aes(piglet, filtered_data[,2], fill= abund)) +
              space = "free")
 ```
 
+Here again, the graph needs to be exported to be analysed.
+
 ```{r}
 scale = 200 # Set the scale for the exported image
 
@@ -333,6 +335,8 @@ filtered_data[,2] = with(filtered_data, reorder(filtered_data[,2], abund, sum))
 
 head(filtered_data)
 ```
+
+Then, we can create the graph with the different boxplots.
 
 ```{r}
 my_breaks = c(1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1)
@@ -505,6 +509,8 @@ library(tidyverse)
 
 ### 1) Control tree
 
+The microorganism from the pig that didn't get colistin are selected to be integrated in a tree.
+
 ```{r}
 # Selected classes
 selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses") 
@@ -560,6 +566,8 @@ vertices$group = edges$from[ match( vertices$name, edges$to ) ]
 #vertices[bad_rows,]$labels = ""
 
 ```
+
+We then create (and export) the tree for the control group.
 
 ```{r}
 library(ggraph)
@@ -630,7 +638,7 @@ selected_classes = c("Archaea", "Bacteria", "Eukaryota", "Viruses")
 filtered_data = subset(data, kingdom %in% selected_classes & group == "Colistin", select = -c(species))
 filtered_data = drop_na(filtered_data)
 filtered_data = droplevels.data.frame(filtered_data)
-#filtered_data = drop_na(filtered_data[c("kingdom","genus","ind","group","abund")])
+#filtered_data = drop_na(filtered_data[c("kingdom","genus","piglet","group","abund")])
 
 cross_df = data.frame(name = levels(filtered_data$genus))
 sums = c()
