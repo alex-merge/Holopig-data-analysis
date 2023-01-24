@@ -68,16 +68,21 @@ my_color <- coul[as.numeric(as.factor(V(network)$carac))]
 
 
 # plot it
-aa = plot(network,
+png(file = "aaaa.png",
+    width = 900 , height = 900,
+  )
+plot(network,
      edge.width= scale(ordered_gene_cor[,3], center = TRUE, scale = TRUE)+ 2,
      #layout=layout.circle,
      vertex.color = my_color )
-
+dev.off()
 
 scale = 200 # Set the scale for the exported image
 
-save.image(file = "Network_100.Rdata",
-           compress = F
+ggsave(filename = "ksjfb.png")
+
+savePlot(filename = "Network_100",
+         type = "png"
        #width = 16*scale,
        #height = 18*scale,
        #units = "px",

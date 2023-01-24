@@ -318,7 +318,7 @@ First, we can choose the taxonomic level we want to plot.
 
 ```{r}
 #ENTER VALUE 
-taxo_level = "species"    #possible options : kingdom	- phylum -	class	- order -	familly -	genus -	species
+taxo_level = "genus"    #possible options : kingdom	- phylum -	class	- order -	familly -	genus -	species
 ```
 
 ### 1) Raw relative abundance
@@ -362,7 +362,7 @@ ggplot(filtered_data, aes(abund, filtered_data[,2], fill = group)) +
         #axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         panel.border=element_blank(),
-        panel.grid.major.y = element_line(size = 6, linetype = 'solid', colour = "grey"),
+        panel.grid.major.y = element_line(size = 5, linetype = 'solid', colour = "grey"),
         legend.text=element_text(face="bold", size = 15),
         plot.title = element_text(face="bold", size = 25),
         legend.title = element_text(face="bold", size = 15),
@@ -375,6 +375,7 @@ ggplot(filtered_data, aes(abund, filtered_data[,2], fill = group)) +
              space = "free")
 ```
 
+
 And once again we export the figure.
 
 ```{r}
@@ -382,7 +383,7 @@ scale = 200
 
 ggsave(filename = paste("../export/BP_taxonomy_",taxo_level,"(RawData_logScale).png", sep=""),
        width = 16*scale,
-       height = 18*scale,
+       height = 16*scale,
        units = "px",
        dpi=200)
 ```
