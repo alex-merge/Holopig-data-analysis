@@ -5,7 +5,8 @@ output: html_notebook
 
 # Reduction into a data.frame with relative abundances for each clade
 
-This part aims to treat the result of metagenomic sequencing by reducing a data sheet of quantity and quality of reads for each individual (columns) per taxon (lines) in a data frame containing for one taxon and one individual (lines) the different taxonomic information and the relative abundance of reads.
+
+In this part, the table containing the reads for each individuals (in column) per taxons (in rows) is treated. We keep only the column of interests and the rows containing the bests informations. This program returns two tables: one containing the different taxons and one containing the differents individuals.
 
 ## Importing the raw dataset
 
