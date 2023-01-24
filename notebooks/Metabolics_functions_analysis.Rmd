@@ -24,7 +24,7 @@ We associate two lists :
 
 -   `name_sample` : names of the piglet which appear in columns. The name and the column need to be the same because we use the name_sample as a variable to get all the individuals in further parts.
 
--   `catogory` : class of the piglet. The vector begins with the category of the firs piglet, the last category given corresponds to the last piglet (here the 34th piglet) .
+-   `category` : class of the piglet. The vector begins with the category of the firs piglet, the last category given corresponds to the last piglet (here the 34th piglet) .
 
 ```{r}
 
