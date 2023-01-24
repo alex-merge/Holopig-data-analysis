@@ -11,7 +11,7 @@
 
 
 
-<title>Metabolic_functions_analysis</title>
+<title>Metabolic_functions_preprocessing</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -1746,510 +1746,99 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Metabolic_functions_analysis</h1>
+<h1 class="title toc-ignore">Metabolic_functions_preprocessing</h1>
 
 </div>
 
 
 <!-- rnb-text-begin -->
-<div id="metabolic-functions-analysis" class="section level1">
-<h1>Metabolic functions analysis</h1>
-<p>The current notebook explains how to handle data in order to get the
-relative abundance of functions (enzymes, GO, …) and differentiate it by
-the class of the individual (control or colistin).</p>
-<div id="import-libraries" class="section level2">
-<h2>Import libraries</h2>
+<div id="metabolic-functions-preprocessing" class="section level1">
+<h1>Metabolic functions preprocessing</h1>
+<p>The preprocessing is made by /scripts/Rax_data_splitter.R and made to
+handle tsv input file as default.</p>
+<div id="setting-general-parameters" class="section level2">
+<h2>Setting general parameters</h2>
+<p>As general parameters, the user can choose the name of the input file
+(must be a tsv file, if not see next paragraph), the prefix of the
+outputs files and the number of outputs files. The larger the number of
+files, the smaller the size of the output files, the easier they will be
+to process.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShnZ3Bsb3QyKVxubGlicmFyeShocmJydGhlbWVzKVxubGlicmFyeSh0aWR5dmVyc2UpXG5saWJyYXJ5KHRpZHlyKVxubGlicmFyeShSQ29sb3JCcmV3ZXIpXG5saWJyYXJ5KHJlc2hhcGUpXG5gYGAifQ== -->
-<pre class="r"><code>library(ggplot2)
-library(hrbrthemes)
-library(tidyverse)
-library(tidyr)
-library(RColorBrewer)
-library(reshape)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZmlsZXBhdGggICAgICAgID0gXCJyYXdfZGF0YS9RdWFudGlmaWNhdGlvbnNfYW5kX2Z1bmN0aW9uYWxfYW5ub3RhdGlvbnMudHN2XCJcbm91dHB1dF9iYXNlbmFtZSA9IFwiQW5ub3RfXCJcbm5iX2ZpbGUgICAgID0gMjAgICAgICAgIyBOdW1iZXIgb2YgZmlsZSB3YW50ZWQgYXQgdGhlIGVuZFxuYGBgIn0= -->
+<pre class="r"><code>filepath        = &quot;raw_data/Quantifications_and_functional_annotations.tsv&quot;
+output_basename = &quot;Annot_&quot;
+nb_file     = 20       # Number of file wanted at the end</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
-<div id="association-between-the-piglet-and-its-condition" class="section level2">
-<h2>Association between the piglet and its condition</h2>
-<p>We associate two lists :</p>
+<div id="importation-of-the-input-file" class="section level2">
+<h2>Importation of the input file</h2>
+<p><strong>If the input file is not a tsv, the separator should be
+change.</strong> Then if you have a file separate by :</p>
 <ul>
-<li><p><code>name_sample</code> : names of the piglet which appear in
-columns. The name and the column need to be the same because we use the
-name_sample as a variable to get all the individuals in further
-parts.</p></li>
-<li><p><code>catogory</code> : class of the piglet. The vector begins
-with the category of the firs piglet, the last category given
-corresponds to the last piglet (here the 34th piglet) .</p></li>
+<li><p>tabulations (.tsv) : do not change the command</p></li>
+<li><p>commas (.csv) : remove <code>sep=&quot;\t&quot;,</code> . The default
+separator is “,” for <code>read.csv</code>.</p></li>
+<li><p>semi-colon : change <code>sep=&quot;\t&quot;,</code> by
+<code>sep=&quot;;&quot;</code></p></li>
 </ul>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5uYW1lX3NhbXBsZSA9IGMoKSAjZW1wdHkgbGlzdFxuXG5mb3IgKG5iX3BpZyBpbiAxOjM0KSB7XG4gIGlmIChuYl9waWcgPCAxMCl7XG4gICAgbmFtZV9zYW1wbGUgPSBjKG5hbWVfc2FtcGxlLCBwYXN0ZShcIkhvbG9waWdfY29sb24wXCIsIG5iX3BpZywgXCIuZmVhdHVyZUNvdW50cy50c3ZcIiwgc2VwID0gXCJcIikpXG4gIH0gZWxzZSB7XG4gICAgbmFtZV9zYW1wbGUgPSBjKG5hbWVfc2FtcGxlLCBwYXN0ZShcIkhvbG9waWdfY29sb25cIiwgbmJfcGlnLCBcIi5mZWF0dXJlQ291bnRzLnRzdlwiLCBzZXAgPSBcIlwiKSlcbiAgfVxufVxuY2F0ZWdvcnkgPSBjKFwiQ29udHJvbFwiLCBcIkNvbGlzdGluXCIsIFwiQ29udHJvbFwiLCBcIkNvbnRyb2xcIiwgXCJDb250cm9sXCIsIFwiQ29udHJvbFwiLFxuICAgICAgICAgICAgIFwiQ29saXN0aW5cIiwgXCJDb2xpc3RpblwiLCBcIkNvbnRyb2xcIiwgXCJDb2xpc3RpblwiLCBcIkNvbGlzdGluXCIsIFwiQ29udHJvbFwiLFxuICAgICAgICAgICAgIFwiQ29udHJvbFwiLCBcIkNvbnRyb2xcIiwgXCJDb250cm9sXCIsIFwiQ29udHJvbFwiLCBcIkNvbnRyb2xcIiwgXCJDb2xpc3RpblwiLFxuICAgICAgICAgICAgIFwiQ29saXN0aW5cIiwgXCJDb2xpc3RpblwiLCBcIkNvbGlzdGluXCIsIFwiQ29saXN0aW5cIiwgXCJDb250cm9sXCIsIFwiQ29udHJvbFwiLFxuICAgICAgICAgICAgIFwiQ29udHJvbFwiLCBcIkNvbnRyb2xcIiwgXCJDb250cm9sXCIsIFwiQ29saXN0aW5cIiwgXCJDb250cm9sXCIsIFwiQ29saXN0aW5cIixcbiAgICAgICAgICAgICBcIkNvbGlzdGluXCIsIFwiQ29saXN0aW5cIiwgXCJDb2xpc3RpblwiLCBcIkNvbGlzdGluXCIpXG5cbmRhdGFfY2F0X3NhbXBsZSA9IGRhdGEuZnJhbWUobmFtZV9zYW1wbGUsIGNhdGVnb3J5KVxuYGBgIn0= -->
-<pre class="r"><code>
-name_sample = c() #empty list
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZGF0YSA9IHJlYWQuY3N2KGZpbGVwYXRoLCBzZXA9XCJcXHRcIiwgaGVhZGVyID0gRkFMU0UpXG5gYGAifQ== -->
+<pre class="r"><code>data = read.csv(filepath, sep=&quot;\t&quot;, header = FALSE)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The decimal sign is set as “.”. If you used “,” as decimal delimiter,
+please add <code>dec = &quot;,&quot;</code> in the command above. We treat the
+header as a row by <code>header = FALSE</code>.</p>
+</div>
+<div id="parting-raw-data-by-the-number-of-lines" class="section level2">
+<h2>Parting raw data by the number of lines</h2>
+<p>We choose to parting the data according to the number of row.</p>
+<p>We retrieve the total number of rows of the raw data
+(<code>nb_rows</code>). We set the number of rows per file by dividing
+<code>nb_rows</code> per <code>nb_file</code>. And we save the header of
+the raw data in <code>header_line</code> for a further use.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubmJfcm93cyA9IG5yb3coZGF0YSlcbm5iX3Jvd3NfcGVyX2ZpbGUgPSBjZWlsaW5nKG5iX3Jvd3MvbmJyX2ZpY2hpZXIpICNyb3VuZCB1cCB0aGUgbnVtYmVyXG5oZWFkZXJfbGluZSA9IGRhdGFbMSxdXG5gYGAifQ== -->
+<pre class="r"><code>nb_rows = nrow(data)
+nb_rows_per_file = ceiling(nb_rows/nbr_fichier) #round up the number
+header_line = data[1,]</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>We fill each output file using a for-loop.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubmJfcm93X2luZiA9IDEgI3JvdyBudW1iZXIgb2YgdGhlIGhlYWRlciBsaW5lXG5cbmZvciAoaWQgaW4gMTpuYl9maWxlKSB7XG4gIG5iX3Jvd19pbmYgPSBuYl9yb3dfaW5mICsgMVxuICBuYl9yb3dfc3VwID0gaWQqbmJfcm93c19wZXJfZmlsZVxuICBvdXRfZGYgPSByYmluZChoZWFkZXJfbGluZSwgZGF0YVtuYl9yb3dfaW5mOm5iX3Jvd19zdXAsIF0pXG4gIHdyaXRlLnRhYmxlKG91dF9kZiwgXG4gICAgICAgICAgICAgIGZpbGUgPSBwYXN0ZShcInJlZmluZWRfZGF0YS9cIixvdXRwdXRfYmFzZW5hbWUsaWQsXCIuY3N2XCIsIHNlcD1cIlwiKSwgXG4gICAgICAgICAgICAgIHJvdy5uYW1lcyA9IEZBTFNFLCBjb2wubmFtZXMgPSBGQUxTRSwgc2VwPVwiO1wiKVxuICBuYl9yb3dfaW5mID0gbmJfcm93X3N1cFxufVxuYGBgIn0= -->
+<pre class="r"><code>nb_row_inf = 1 #row number of the header line
 
-for (nb_pig in 1:34) {
-  if (nb_pig &lt; 10){
-    name_sample = c(name_sample, paste(&quot;Holopig_colon0&quot;, nb_pig, &quot;.featureCounts.tsv&quot;, sep = &quot;&quot;))
-  } else {
-    name_sample = c(name_sample, paste(&quot;Holopig_colon&quot;, nb_pig, &quot;.featureCounts.tsv&quot;, sep = &quot;&quot;))
-  }
-}
-category = c(&quot;Control&quot;, &quot;Colistin&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;,
-             &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Control&quot;, &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Control&quot;,
-             &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Colistin&quot;,
-             &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Control&quot;, &quot;Control&quot;,
-             &quot;Control&quot;, &quot;Control&quot;, &quot;Control&quot;, &quot;Colistin&quot;, &quot;Control&quot;, &quot;Colistin&quot;,
-             &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Colistin&quot;, &quot;Colistin&quot;)
-
-data_cat_sample = data.frame(name_sample, category)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>From this we transpose the data frame to get each piglet name’s as
-columns and the category as the value of the row. It will be further
-used for the creation of heatmaps.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBBZGQgdGhlIGNhdGVnb3J5IG9mIHRoZSBwaWcgKGNvbGlzdGluIG9yIGNvbnRyb2wpXG50cmFuc3Bvc2VkX2NhdF9waWcgPSB0KGRhdGFfY2F0X3NhbXBsZSlcbmRhdGFmcmFtZV9waWdfY2F0ID0gZGF0YS5mcmFtZSh0cmFuc3Bvc2VkX2NhdF9waWcpXG5uYW1lcyhkYXRhZnJhbWVfcGlnX2NhdCkgPSBhcy5tYXRyaXgoZGF0YWZyYW1lX3BpZ19jYXRbMSxdKSAjbWFrZSB0aGUgZmlyc3Qgcm93IGFzIHRoZSBoZWFkZXJcbmRhdGFmcmFtZV9waWdfY2F0ID0gZGF0YWZyYW1lX3BpZ19jYXRbLTEsXSAjcmVtb3ZlIHRoZSBmaXJzdCByb3cgbm93XG5gYGAifQ== -->
-<pre class="r"><code># Add the category of the pig (colistin or control)
-transposed_cat_pig = t(data_cat_sample)
-dataframe_pig_cat = data.frame(transposed_cat_pig)
-names(dataframe_pig_cat) = as.matrix(dataframe_pig_cat[1,]) #make the first row as the header
-dataframe_pig_cat = dataframe_pig_cat[-1,] #remove the first row now</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="settings-to-load-the-preprocessed-data" class="section level2">
-<h2>Settings to load the preprocessed data</h2>
-<p>Put the output prefix used in /scripts/Raw_data_splitter in
-<code>pattern =</code> . Be careful the current working directory is not
-the general folder. Then you need to escape it (..) and enter in the
-folder where there are the split files from raw metabolic data
-(/refined_data). The list of the files is saved in the directory
-variable.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5kaXJlY3Rvcnk9bGlzdC5maWxlcyhwYXRoID0gXCIuLi9yZWZpbmVkX2RhdGFcIiwgcGF0dGVybiA9IFwiQW5ub3RcIikgI1JldHJpZXZlIGZpbGUgbmFtZSBpbiBwYXRoIHdpdGNoIGNvbnRhaW5zIHRoZSBwYXR0ZXJuXG5gYGAifQ== -->
-<pre class="r"><code>
-directory=list.files(path = &quot;../refined_data&quot;, pattern = &quot;Annot&quot;) #Retrieve file name in path witch contains the pattern</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<div id="sum-of-reads-per-individual" class="section level3">
-<h3>Sum of reads per individual</h3>
-<p>We set up an empty data frame (<code>nb_reads_pig</code>) in order to
-get the total sum of reads per individual. It will be further use for
-calculating the relative abundance.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5jb2x1bW5zX3JlYWRzID0gYyhuYW1lX3NhbXBsZSlcbnJvd3NfcmVhZHMgICAgPSBjKGRpcmVjdG9yeSlcbm5iX3JlYWRzX3BpZyAgPSBkYXRhLmZyYW1lKG1hdHJpeChucm93ID0gbGVuZ3RoKGRpcmVjdG9yeSksIG5jb2wgPSBsZW5ndGgoY29sdW1uc19yZWFkcykpKVxuY29sbmFtZXMobmJfcmVhZHNfcGlnKSA9IGNvbHVtbnNfcmVhZHNcbnJvd25hbWVzKG5iX3JlYWRzX3BpZykgPSByb3dzX3JlYWRzXG5cbmZvciAoZmlsZSBpbiBkaXJlY3RvcnkpIHtcbiAgXG4gICMgTWFuaXB1bGF0aW9uIG9mIGVhY2ggc3BsaXQgZmlsZVxuICBmaWxlcGF0aCAgPSBwYXN0ZShcIi4uL3JlZmluZWRfZGF0YS9cIiwgZmlsZSwgc2VwID0gXCJcIilcbiAgZGF0YSAgICAgID0gcmVhZC5jc3YoZmlsZXBhdGgsIHNlcCA9IFwiO1wiKVxuICBcbiAgIyBDb3VudGVyIG9mIHRvdGFsIHJlYWRzIGZvciBlYWNoIHBpZyBpbiBlYWNoIGZpbGVcbiAgZm9yIChuYW1lX3BpZyBpbiBuYW1lX3NhbXBsZSkge1xuICAgIHN1bV9yZWFkc19waWcgPSBzdW0obmEub21pdChkYXRhWywgY29sbmFtZXMoZGF0YSlbY29sbmFtZXMoZGF0YSkgPT0gbmFtZV9waWddXSkpXG4gICAgbmJfcmVhZHNfcGlnW2ZpbGUsIG5hbWVfcGlnXSA9IHN1bV9yZWFkc19waWdcbiAgfVxufVxuXG5uYl9yZWFkc19waWdbbnJvdyhuYl9yZWFkc19waWcpKzEsXSA9IGNvbFN1bXMobmJfcmVhZHNfcGlnKVxucm93bmFtZXMobmJfcmVhZHNfcGlnKVtucm93KG5iX3JlYWRzX3BpZyldID0gJ1RvdGFsJ1xuXG5gYGAifQ== -->
-<pre class="r"><code>
-columns_reads = c(name_sample)
-rows_reads    = c(directory)
-nb_reads_pig  = data.frame(matrix(nrow = length(directory), ncol = length(columns_reads)))
-colnames(nb_reads_pig) = columns_reads
-rownames(nb_reads_pig) = rows_reads
-
-for (file in directory) {
-  
-  # Manipulation of each split file
-  filepath  = paste(&quot;../refined_data/&quot;, file, sep = &quot;&quot;)
-  data      = read.csv(filepath, sep = &quot;;&quot;)
-  
-  # Counter of total reads for each pig in each file
-  for (name_pig in name_sample) {
-    sum_reads_pig = sum(na.omit(data[, colnames(data)[colnames(data) == name_pig]]))
-    nb_reads_pig[file, name_pig] = sum_reads_pig
-  }
-}
-
-nb_reads_pig[nrow(nb_reads_pig)+1,] = colSums(nb_reads_pig)
-rownames(nb_reads_pig)[nrow(nb_reads_pig)] = &#39;Total&#39;
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="removing-useless-variables" class="section level3">
-<h3>Removing useless variables</h3>
-<p>Clean up the environment to remove useless variables. Optional
-step.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucm0obGlzdCA9IGMoXCJjYXRlZ29yeVwiLCBcImNvbHVtbnNfcmVhZHNcIiwgXCJmaWxlXCIsIFwiZmlsZXBhdGhcIiwgXCJuYW1lX3BpZ1wiLCBcIm5iX3BpZ1wiLCBcInJvd3NfcmVhZHNcIiwgXCJzdW1fcmVhZHNfcGlnXCIpKVxuYGBgIn0= -->
-<pre class="r"><code>rm(list = c(&quot;category&quot;, &quot;columns_reads&quot;, &quot;file&quot;, &quot;filepath&quot;, &quot;name_pig&quot;, &quot;nb_pig&quot;, &quot;rows_reads&quot;, &quot;sum_reads_pig&quot;))</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-</div>
-<div id="work-on-the-split-files" class="section level2">
-<h2>Work on the split files</h2>
-<p>To treat the data is an easier way, we have split it in different
-files and now we want to aggregate the data of interest little by
-little, file per file. To do so, we use a for-loop to look at each file.
-Loading the complete raw data is longer than loading several smaller
-files.</p>
-<div id="relative-abundance" class="section level3">
-<h3>Relative Abundance</h3>
-<p>Creating empty data frame. Will be use in the for-loop to store the
-filtered data.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuY29sdW1uc19maWx0ZXJlZCA9IGMobmFtZV9zYW1wbGUsIFwiQ09HX2NhdGVnb3J5XCIsIFwiR09zXCIsIFwiRUNcIiwgXCJLRUdHX2tvXCIsIFwiS0VHR19QYXRod2F5XCIsIFwiS0VHR19SZWFjdGlvblwiLCBcIkNBWnlcIiwgXCJQRkFNc1wiLFwiS0VHR19Nb2R1bGVcIilcbmRhdGFfZmlsdGVyZWQgPSBkYXRhLmZyYW1lKG1hdHJpeChucm93ID0gMCwgbmNvbCA9IGxlbmd0aChjb2x1bW5zX2ZpbHRlcmVkKSkpXG5jb2xuYW1lcyhkYXRhX2ZpbHRlcmVkKSA9IGNvbHVtbnNfZmlsdGVyZWRcblxuYGBgIn0= -->
-<pre class="r"><code>columns_filtered = c(name_sample, &quot;COG_category&quot;, &quot;GOs&quot;, &quot;EC&quot;, &quot;KEGG_ko&quot;, &quot;KEGG_Pathway&quot;, &quot;KEGG_Reaction&quot;, &quot;CAZy&quot;, &quot;PFAMs&quot;,&quot;KEGG_Module&quot;)
-data_filtered = data.frame(matrix(nrow = 0, ncol = length(columns_filtered)))
-colnames(data_filtered) = columns_filtered
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<ol style="list-style-type: decimal">
-<li>We remove unnecessary columns and rows with Sum = 0 (genes where no
-reads mapped)</li>
-<li>We calculate the relative abundance per individuals.</li>
-<li>We only select rows which present more than 8 values for a single
-group. This means if the colistin group gets more than 8 values
-(i.e. values different from 0), we keep the entire row. If the colistin
-group gets less than 8 values but the control group does, we keep the
-entire row. But neither the colistin group or the control group gets
-more than 8 values, we drop the row.</li>
-</ol>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5mb3IgKGZpbGUgaW4gZGlyZWN0b3J5KSB7XG4gIFxuICAjIE1hbmlwdWxhdGlvbiBvZiBlYWNoIHNwbGl0IGZpbGVcbiAgZmlsZXBhdGggPSBwYXN0ZShcIi4uL3JlZmluZWRfZGF0YS9cIiwgZmlsZSwgc2VwID0gXCJcIilcbiAgZGF0YSA9IHJlYWQuY3N2KGZpbGVwYXRoLCBzZXAgPSBcIjtcIilcbiAgXG4gIGRhdGEgPSBkYXRhICU+JSBzZWxlY3QoLWMoc2VlZF9jbHVzdGVyLCBzZWVkX29ydGhvbG9nLCBldmFsdWUsIHNjb3JlLCBCUklURSwgS0VHR19Nb2R1bGUsIEtFR0dfcmNsYXNzLCBLRUdHX1RDLCBCaUdHX1JlYWN0aW9uLCBlZ2dOT0dfT0dzLCBtYXhfYW5ub3RfbHZsLCBEZXNjcmlwdGlvbiwgc3NlcWlkLCBzdGl0bGUpKVxuICBkYXRhX1JlbEFiZF9tb2QgPSBzdWJzZXQoZGF0YSwgc3VtICE9IDApXG4gIGRhdGFfUmVsQWJkX21vZCA9IGRhdGFfUmVsQWJkX21vZCAlPiUgc2VsZWN0KC1zdW0pXG5cbiAgIyBDcmVhdGluZyBhIG5ldyBkYXRhZnJhbWUgd2l0aCByZWxhdGl2ZSBhYnVuZGFuY2VzXG4gIGZvciAobmFtZSBpbiBuYW1lX3NhbXBsZSkge1xuICBkYXRhX1JlbEFiZF9tb2RbLG5hbWVdID0gZGF0YV9SZWxBYmRfbW9kWyxuYW1lXSAvIG5iX3JlYWRzX3BpZ1tcIlRvdGFsXCIsbmFtZV0gI0RpdmlkaW5nIGVhY2ggY2VsbCBieSB0aGUgdG90YWwgb2YgcmVhZHMgZm9yIHRoZSBpbmRpdmlkdWFsIGFuZCBhZGQgaXQgdG8gdGhlIG5ldyBkYXRhZnJhbWVcbiAgfVxuICAjIEdpdmluZyB1cCB0aGUgcm93cyBpZiB0aGVyZSBpcyBsZXNzIHRoYW4gOCB2YWx1ZXMgZm9yIGJvdGggY2F0ZWdvcmllcy4oaS5lLiA9Lz0gMClcbiAgZGF0YV9SZWxBYmRfdGVzdENvbGlzdGluID0gZGF0YV9SZWxBYmRfbW9kICU+JSBzZWxlY3QoZGF0YV9jYXRfc2FtcGxlJG5hbWVfc2FtcGxlW2RhdGFfY2F0X3NhbXBsZSRjYXRlZ29yeSA9PSBcIkNvbGlzdGluXCJdKSAlPiUgbXV0YXRlKG5iX2VtcHR5X3NhbXBsZV9Db2xpc2l0aW4gPSByb3dTdW1zKC4gPT0gMCkpXG4gIGRhdGFfUmVsQWJkX3Rlc3RDb250cm9sID0gZGF0YV9SZWxBYmRfbW9kICU+JSBzZWxlY3QoZGF0YV9jYXRfc2FtcGxlJG5hbWVfc2FtcGxlW2RhdGFfY2F0X3NhbXBsZSRjYXRlZ29yeSA9PSBcIkNvbnRyb2xcIl0pICU+JSBtdXRhdGUobmJfZW1wdHlfc2FtcGxlX0NvbnRyb2wgPSByb3dTdW1zKC4gPT0gMCkpXG4gIGRhdGFfUmVsQWJkX2ZpbHRlcmVkID0gc3Vic2V0KGRhdGFfUmVsQWJkX21vZCwgZGF0YV9SZWxBYmRfdGVzdENvbGlzdGluJG5iX2VtcHR5X3NhbXBsZV9Db2xpc2l0aW4gPD0gOCB8IGRhdGFfUmVsQWJkX3Rlc3RDb250cm9sJG5iX2VtcHR5X3NhbXBsZV9Db250cm9sIDw9IDgpICNLZWVwaW5nIHJvd3MgaWYgdGhlcmUgaXMgbGVzcyB0aGFuIDggdGltZXMgMCBpbiBvbmUgY2F0ZWdvcnlcbiAgXG4gICMgQmluZGluZyB0aGUgcmVzdWx0IGZyb20gYSBmaWxlLCBvbmUgYWZ0ZXIgdGhlIG90aGVyXG4gIGRhdGFfZmlsdGVyZWQgPSBtZXJnZShkYXRhX2ZpbHRlcmVkLGRhdGFfUmVsQWJkX2ZpbHRlcmVkLCBhbGwgPSBUUlVFKVxuXG59XG5cbmBgYCJ9 -->
-<pre class="r"><code>
-for (file in directory) {
-  
-  # Manipulation of each split file
-  filepath = paste(&quot;../refined_data/&quot;, file, sep = &quot;&quot;)
-  data = read.csv(filepath, sep = &quot;;&quot;)
-  
-  data = data %&gt;% select(-c(seed_cluster, seed_ortholog, evalue, score, BRITE, KEGG_Module, KEGG_rclass, KEGG_TC, BiGG_Reaction, eggNOG_OGs, max_annot_lvl, Description, sseqid, stitle))
-  data_RelAbd_mod = subset(data, sum != 0)
-  data_RelAbd_mod = data_RelAbd_mod %&gt;% select(-sum)
-
-  # Creating a new dataframe with relative abundances
-  for (name in name_sample) {
-  data_RelAbd_mod[,name] = data_RelAbd_mod[,name] / nb_reads_pig[&quot;Total&quot;,name] #Dividing each cell by the total of reads for the individual and add it to the new dataframe
-  }
-  # Giving up the rows if there is less than 8 values for both categories.(i.e. =/= 0)
-  data_RelAbd_testColistin = data_RelAbd_mod %&gt;% select(data_cat_sample$name_sample[data_cat_sample$category == &quot;Colistin&quot;]) %&gt;% mutate(nb_empty_sample_Colisitin = rowSums(. == 0))
-  data_RelAbd_testControl = data_RelAbd_mod %&gt;% select(data_cat_sample$name_sample[data_cat_sample$category == &quot;Control&quot;]) %&gt;% mutate(nb_empty_sample_Control = rowSums(. == 0))
-  data_RelAbd_filtered = subset(data_RelAbd_mod, data_RelAbd_testColistin$nb_empty_sample_Colisitin &lt;= 8 | data_RelAbd_testControl$nb_empty_sample_Control &lt;= 8) #Keeping rows if there is less than 8 times 0 in one category
-  
-  # Binding the result from a file, one after the other
-  data_filtered = merge(data_filtered,data_RelAbd_filtered, all = TRUE)
-
-}
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="exportation-of-the-filtered-data" class="section level3">
-<h3>Exportation of the filtered data</h3>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG53cml0ZS50YWJsZShkYXRhX2ZpbHRlcmVkLCBmaWxlID0gXCIuLi9yZWZpbmVkX2RhdGEvUXVhbnRpZmljYXRpb25zX2FuZF9mdW5jdGlvbmFsX2Fubm90YXRpb25zX2ZpbHRlcmVkXCIsIHNlcCA9ICdcXHQnLCByb3cubmFtZXMgPSBGQUxTRSwgcXVvdGUgPSBGQUxTRSlcblxuYGBgIn0= -->
-<pre class="r"><code>
-write.table(data_filtered, file = &quot;../refined_data/Quantifications_and_functional_annotations_filtered&quot;, sep = &#39;\t&#39;, row.names = FALSE, quote = FALSE)
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="removing-useless-variables-1" class="section level3">
-<h3>Removing useless variables</h3>
-<p>Clean up the environment to remove useless variables. Optional
-step.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucm0obGlzdCA9IGMoXCJkYXRhXCIsIFwiZGF0YV9SZWxBYmRfZmlsdGVyZWRcIiwgXCJkYXRhX1JlbEFiZF90ZXN0Q29saXN0aW5cIiwgXCJkYXRhX1JlbEFiZF90ZXN0Q29udHJvbFwiLCBcImRhdGFfUmVsQWJkX21vZFwiLCBcImZpbGVcIiwgXCJmaWxlcGF0aFwiLCBcIm5hbWVcIiwgXCJjb2x1bW5zX2ZpbHRlcmVkXCIpKVxuYGBgIn0= -->
-<pre class="r"><code>rm(list = c(&quot;data&quot;, &quot;data_RelAbd_filtered&quot;, &quot;data_RelAbd_testColistin&quot;, &quot;data_RelAbd_testControl&quot;, &quot;data_RelAbd_mod&quot;, &quot;file&quot;, &quot;filepath&quot;, &quot;name&quot;, &quot;columns_filtered&quot;))</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-</div>
-<div id="getting-dataframe-for-the-selected-function" class="section level2">
-<h2>Getting dataframe for the selected function</h2>
-<p>All the processing before needs to be run one time. The following
-processing steps can be run several times (for each function of
-interest) one the same <code>data_filtered</code> dataframe because all
-the possible functions were kept.</p>
-<div id="setting-the-function-of-interest" class="section level3">
-<h3>Setting the function of interest</h3>
-<p>The user needs to fill the type of function he has interest for.
-There is predetermined choices, it only could be the name of a column
-kept in the <code>data_filtered</code> data frame.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuI2Nob29zZSB0aGUgZnVuY3Rpb24gb2YgaW50ZXJlc3RcbmZ1bmN0aW9uX2ludGVyZXN0ID0gYyhcIkNPR19jYXRlZ29yeVwiKSAjc2V2ZXJhbCBjaG9pY2VzIGJ1dCBvbmUgYXQgdGhlIHRpbWVcbmZ1bmN0aW9uX2ludGVyZXN0ID0gYyhcIkdPc1wiKVxuZnVuY3Rpb25faW50ZXJlc3QgPSBjKFwiS0VHR19rb1wiKVxuZnVuY3Rpb25faW50ZXJlc3QgPSBjKFwiS0VHR19QYXRod2F5XCIpXG5mdW5jdGlvbl9pbnRlcmVzdCA9IGMoXCJLRUdHX1JlYWN0aW9uXCIpXG5mdW5jdGlvbl9pbnRlcmVzdCA9IGMoXCJDQVp5XCIpXG5mdW5jdGlvbl9pbnRlcmVzdCA9IGMoXCJQRkFNc1wiKVxuZnVuY3Rpb25faW50ZXJlc3QgPSBjKFwiRUNcIilcbmZ1bmN0aW9uX2ludGVyZXN0ID0gYyhcIktFR0dfTW9kdWxlXCIpXG5cbmBgYCJ9 -->
-<pre class="r"><code>#choose the function of interest
-function_interest = c(&quot;COG_category&quot;) #several choices but one at the time
-function_interest = c(&quot;GOs&quot;)
-function_interest = c(&quot;KEGG_ko&quot;)
-function_interest = c(&quot;KEGG_Pathway&quot;)
-function_interest = c(&quot;KEGG_Reaction&quot;)
-function_interest = c(&quot;CAZy&quot;)
-function_interest = c(&quot;PFAMs&quot;)
-function_interest = c(&quot;EC&quot;)
-function_interest = c(&quot;KEGG_Module&quot;)
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="getting-the-sum-of-the-relative-abundances-by-the-function" class="section level3">
-<h3>Getting the sum of the relative abundances by the function</h3>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG4jIEtlZXBpbmcgY29sdW1ucyBvZiBpbnRlcmVzdCBhbmQgY3JlYXRpbmcgYSBuZXcgZGF0YWZyYW1lXG5mdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSA9IGRhdGFfZmlsdGVyZWRbLGMoZnVuY3Rpb25faW50ZXJlc3QsIG5hbWVfc2FtcGxlKV1cbiAgXG4jIFN1bW1pbmcgY29sdW1ucyBieSB0aGUgbmFtZSBvZiB0aGUgZnVuY3Rpb24gaW4gYSBkYXRhZnJhbWVcbmZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhID0gYWdncmVnYXRlKHggPSBmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YVssIGNvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhKVtjb2xuYW1lcyhmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSkgIT0gZnVuY3Rpb25faW50ZXJlc3QgXV0sbGlzdChmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YVssZnVuY3Rpb25faW50ZXJlc3RdKSwgRlVOPXN1bSlcbmNvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhKVtjb2xuYW1lcyhmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSkgPT0gJ0dyb3VwLjEnXSA8LSBmdW5jdGlvbl9pbnRlcmVzdFxuICBcbmBgYCJ9 -->
-<pre class="r"><code>
-# Keeping columns of interest and creating a new dataframe
-functions_interest_data = data_filtered[,c(function_interest, name_sample)]
-  
-# Summing columns by the name of the function in a dataframe
-functions_interest_data = aggregate(x = functions_interest_data[, colnames(functions_interest_data)[colnames(functions_interest_data) != function_interest ]],list(functions_interest_data[,function_interest]), FUN=sum)
-colnames(functions_interest_data)[colnames(functions_interest_data) == &#39;Group.1&#39;] &lt;- function_interest
-  </code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="aggregating-same-functions" class="section level3">
-<h3>Aggregating same functions</h3>
-<p>Depending on the type of function of interest, sometimes a same row
-describe different functions. It’s because the annotation at the first
-place was double, triple, … . So we need to separate the rows by their
-categories but the separator depends of the type of function, we use an
-if-loop to go through each case.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5pZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJDT0dfY2F0ZWdvcnlcIikge1xuICBmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW0gPSBzZXBhcmF0ZV9yb3dzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhLCBmdW5jdGlvbl9pbnRlcmVzdCwgc2VwID0gXCJcIiwgY29udmVydCA9IFRSVUUpXG4gIFxuICBmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW1bLCBmdW5jdGlvbl9pbnRlcmVzdF1bZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtWywgZnVuY3Rpb25faW50ZXJlc3RdPT1cIlwiXSA8LSBOQVxuXG4gIGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSA9IG5hLm9taXQoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtKVxuXG59IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiR09zXCIgfCBmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIkVDXCIgfCBmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIktFR0dfa29cIiB8IGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiS0VHR19QYXRod2F5XCIgfCBmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIktFR0dfUmVhY3Rpb25cIiB8IGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiQ0FaeVwiIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJQRkFNc1wiIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJLRUdHX01vZHVsZVwiKSB7XG4gIGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSA9IHNlcGFyYXRlX3Jvd3MoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGEsIGZ1bmN0aW9uX2ludGVyZXN0LCBzZXAgPSBcIixcIiwgY29udmVydCA9IFRSVUUpXG59XG5cbmBgYCJ9 -->
-<pre class="r"><code>
-if (function_interest == &quot;COG_category&quot;) {
-  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = &quot;&quot;, convert = TRUE)
-  
-  functions_interest_data_sum[, function_interest][functions_interest_data_sum[, function_interest]==&quot;&quot;] &lt;- NA
-
-  functions_interest_data_sum = na.omit(functions_interest_data_sum)
-
-} else if (function_interest == &quot;GOs&quot; | function_interest == &quot;EC&quot; | function_interest == &quot;KEGG_ko&quot; | function_interest == &quot;KEGG_Pathway&quot; | function_interest == &quot;KEGG_Reaction&quot; | function_interest == &quot;CAZy&quot; | function_interest == &quot;PFAMs&quot; | function_interest == &quot;KEGG_Module&quot;) {
-  functions_interest_data_sum = separate_rows(functions_interest_data, function_interest, sep = &quot;,&quot;, convert = TRUE)
-}
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>Relative abundances stay the same for separate rows, we have re-sum
-the relative abundances by the name of the function. We have dropped
-duplicated rows which present a NA value in the function name (problem
-only with the manner of the COG_category was created in the raw
-data).</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG4jIFN1bW1pbmcgY29sdW1ucyBieSB0aGUgbmFtZSBvZiB0aGUgZnVuY3Rpb24gaW4gYSBkYXRhZnJhbWVcbmZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWUgPSBhZ2dyZWdhdGUoeCA9IGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bVssIGNvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSlbY29sbmFtZXMoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtKSAhPSBmdW5jdGlvbl9pbnRlcmVzdF1dLCBieSA9IGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bVssIGZ1bmN0aW9uX2ludGVyZXN0XSwgRlVOPXN1bSlcbmBgYCJ9 -->
-<pre class="r"><code>
-# Summing columns by the name of the function in a dataframe
-functions_interest_final_dataframe = aggregate(x = functions_interest_data_sum[, colnames(functions_interest_data_sum)[colnames(functions_interest_data_sum) != function_interest]], by = functions_interest_data_sum[, function_interest], FUN=sum)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gYWdncmVnYXRlLmRhdGEuZnJhbWUoeCA9IGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bVssIGNvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSlbY29sbmFtZXMoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtKSAhPSAgOiBcbiAgcGFzIGRlIGxpZ25lcyDDoCBhZ2dyw6lnZXJcbiJ9 -->
-<pre><code>Error in aggregate.data.frame(x = functions_interest_data_sum[, colnames(functions_interest_data_sum)[colnames(functions_interest_data_sum) !=  : 
-  pas de lignes à aggréger</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="removing-useless-variables-2" class="section level3">
-<h3>Removing useless variables</h3>
-<p>Clean up the environment to remove useless variables. Optional
-step.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucm0obGlzdCA9IGMoXCJmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YVwiLFwiZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtXCIpKVxuYGBgIn0= -->
-<pre class="r"><code>rm(list = c(&quot;functions_interest_data&quot;,&quot;functions_interest_data_sum&quot;))</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-</div>
-<div id="plotting-heatmap-for-the-selected-functions" class="section level2">
-<h2>Plotting heatmap for the selected functions</h2>
-<div id="importing-the-database-for-the-correspondence" class="section level3">
-<h3>Importing the database for the correspondence</h3>
-<p>We use a database to get the correspondence between the code in the
-data to a meaningful name. The user can choose which database will be
-use for a selected function. /! : There are no corresponding tables
-(yet) for the GOs, KEGG_Reaction, CAZy and PFAMs.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5pZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJDT0dfY2F0ZWdvcnlcIikgIHtcbiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KFwiLi4vcmVzc291cmNlcy9mdW5jdGlvbnNfQ09HX2NhdGVnb3J5LmNzdlwiLCBzZXAgPSBcIjtcIilcbn0gZWxzZSBpZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJHT3NcIikgICAge1xuICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoXCIuLi9yZXNzb3VyY2VzLy5jc3ZcIiwgc2VwID0gXCI7XCIpXG59IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiRUNcIikgICAgIHtcbiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KFwiLi4vcmVzc291cmNlcy9FQ19lcXVpdmFsZW5jZXNfbm9fdW5rbm93bi5jc3ZcIiwgc2VwID0gXCI7XCIpXG59IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiS0VHR19rb1wiKSAgICAgICAge1xuICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoXCIuLi9yZXNzb3VyY2VzL0tFR0dfa29fZmluYWwuY3N2XCIsIHNlcCA9IFwiO1wiKVxufSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIktFR0dfUGF0aHdheVwiKSAgIHtcbiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KFwiLi4vcmVzc291cmNlcy9LRUdHX3BhdGh3YXkuY3N2XCIsIHNlcCA9IFwiO1wiKVxufSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIktFRUdfUmVhY3Rpb25cIikgIHtcbiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KFwiLi4vcmVzc291cmNlcy8uY3N2XCIsIHNlcCA9IFwiO1wiKVxufSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSBcIkNBWnlcIikgICB7XG4gIGZ1bmN0aW9uc19uYW1lX2NvcnJlc3AgPSByZWFkLmNzdihcIi4uL3Jlc3NvdXJjZXMvLmNzdlwiLCBzZXAgPSBcIjtcIilcbn0gZWxzZSBpZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gXCJQRkFNc1wiKSAge1xuICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoXCIuLi9yZXNzb3VyY2VzLy5jc3ZcIiwgc2VwID0gXCI7XCIpXG59IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09IFwiS0VHR19Nb2R1bGVcIikgIHtcbiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KFwiLi4vcmVzc291cmNlcy9LRUdHX21vZHVsZS5jc3ZcIiwgc2VwID0gXCI7XCIpXG59XG5gYGAifQ== -->
-<pre class="r"><code>
-if (function_interest == &quot;COG_category&quot;)  {
-  functions_name_corresp = read.csv(&quot;../ressources/functions_COG_category.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;GOs&quot;)    {
-  functions_name_corresp = read.csv(&quot;../ressources/.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;EC&quot;)     {
-  functions_name_corresp = read.csv(&quot;../ressources/EC_equivalences_no_unknown.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;KEGG_ko&quot;)        {
-  functions_name_corresp = read.csv(&quot;../ressources/KEGG_ko_final.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;KEGG_Pathway&quot;)   {
-  functions_name_corresp = read.csv(&quot;../ressources/KEGG_pathway.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;KEEG_Reaction&quot;)  {
-  functions_name_corresp = read.csv(&quot;../ressources/.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;CAZy&quot;)   {
-  functions_name_corresp = read.csv(&quot;../ressources/.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;PFAMs&quot;)  {
-  functions_name_corresp = read.csv(&quot;../ressources/.csv&quot;, sep = &quot;;&quot;)
-} else if (function_interest == &quot;KEGG_Module&quot;)  {
-  functions_name_corresp = read.csv(&quot;../ressources/KEGG_module.csv&quot;, sep = &quot;;&quot;)
+for (id in 1:nb_file) {
+  nb_row_inf = nb_row_inf + 1
+  nb_row_sup = id*nb_rows_per_file
+  out_df = rbind(header_line, data[nb_row_inf:nb_row_sup, ])
+  write.table(out_df, 
+              file = paste(&quot;refined_data/&quot;,output_basename,id,&quot;.csv&quot;, sep=&quot;&quot;), 
+              row.names = FALSE, col.names = FALSE, sep=&quot;;&quot;)
+  nb_row_inf = nb_row_sup
 }</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-</div>
-<div id="reshaping-the-data-for-the-heatmap" class="section level3">
-<h3>Reshaping the data for the heatmap</h3>
-<p>A heatmap needs a certain shape for the data : four columns with the
-name of the function, its relative abundance per individuals and the
-category of the piglet (control or colistin).</p>
+<p><code>nb_row_inf</code> corresponds to the first row of data for the
+output file. We set it at 1 to avoid taking the header row. And then, it
+takes the value of the last row in the previous output file. Thanks to
+the +1 at each beginning of loop, we avoid the repetition of taking the
+same row in two different files.</p>
 <!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5yZXNoYXBlZF9mdW5jdGlvbnMgPSBkYXRhLmZyYW1lKG1hdHJpeChucm93ID0gMCwgbmNvbCA9IDQpKVxuY29sbmFtZXMocmVzaGFwZWRfZnVuY3Rpb25zKSA9IGMoZnVuY3Rpb25faW50ZXJlc3QsXCJSZWxhdGl2ZV9hYnVuZGFuY2VcIixcIlBpZ19uYW1lXCIsXCJDYXRlZ29yeVwiKVxuXG5mb3IgKG5hbWVfcGlnIGluIG5hbWVfc2FtcGxlKSB7XG4gIHJlc2hhcGVkX2Z1bmN0aW9uc19waWcgPSBkYXRhLmZyYW1lKGZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWVbLGZ1bmN0aW9uX2ludGVyZXN0XSwgZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZVtjb2xuYW1lcyhmdW5jdGlvbnNfaW50ZXJlc3RfZmluYWxfZGF0YWZyYW1lKSA9PSBuYW1lX3BpZ10pXG4gIHJlc2hhcGVkX2Z1bmN0aW9uc19waWdbJ3BpZyddID0gcmVwKG5hbWVfcGlnLCBsZW5ndGgoZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZVssZnVuY3Rpb25faW50ZXJlc3RdKSlcbiAgcmVzaGFwZWRfZnVuY3Rpb25zX3BpZ1snY2F0ZWdvcnknXSA9IHJlcChkYXRhZnJhbWVfcGlnX2NhdFsxLGNvbG5hbWVzKGRhdGFmcmFtZV9waWdfY2F0KSA9PSBuYW1lX3BpZ10sIGxlbmd0aChmdW5jdGlvbnNfaW50ZXJlc3RfZmluYWxfZGF0YWZyYW1lWyxmdW5jdGlvbl9pbnRlcmVzdF0pKVxuICBjb2xuYW1lcyhyZXNoYXBlZF9mdW5jdGlvbnNfcGlnKVtjb2xuYW1lcyhyZXNoYXBlZF9mdW5jdGlvbnNfcGlnKSA9PSBuYW1lX3BpZ10gPSAncmVsYXRpdmVfYWJ1bmRhbmNlJ1xuICByZXNoYXBlZF9mdW5jdGlvbnMgPSBtZXJnZShyZXNoYXBlZF9mdW5jdGlvbnMsIHJlc2hhcGVkX2Z1bmN0aW9uc19waWcsIGFsbCA9IFRSVUUsIGJ5LnkgPSBjKFwiZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZS4uLmZ1bmN0aW9uX2ludGVyZXN0LlwiLFwicmVsYXRpdmVfYWJ1bmRhbmNlXCIsXCJwaWdcIixcImNhdGVnb3J5XCIpLCBieS54ID0gYyhmdW5jdGlvbl9pbnRlcmVzdCxcIlJlbGF0aXZlX2FidW5kYW5jZVwiLFwiUGlnX25hbWVcIiwgXCJDYXRlZ29yeVwiKSlcbn1cblxuYGBgIn0= -->
-<pre class="r"><code>
-reshaped_functions = data.frame(matrix(nrow = 0, ncol = 4))
-colnames(reshaped_functions) = c(function_interest,&quot;Relative_abundance&quot;,&quot;Pig_name&quot;,&quot;Category&quot;)
-
-for (name_pig in name_sample) {
-  reshaped_functions_pig = data.frame(functions_interest_final_dataframe[,function_interest], functions_interest_final_dataframe[colnames(functions_interest_final_dataframe) == name_pig])
-  reshaped_functions_pig[&#39;pig&#39;] = rep(name_pig, length(functions_interest_final_dataframe[,function_interest]))
-  reshaped_functions_pig[&#39;category&#39;] = rep(dataframe_pig_cat[1,colnames(dataframe_pig_cat) == name_pig], length(functions_interest_final_dataframe[,function_interest]))
-  colnames(reshaped_functions_pig)[colnames(reshaped_functions_pig) == name_pig] = &#39;relative_abundance&#39;
-  reshaped_functions = merge(reshaped_functions, reshaped_functions_pig, all = TRUE, by.y = c(&quot;functions_interest_final_dataframe...function_interest.&quot;,&quot;relative_abundance&quot;,&quot;pig&quot;,&quot;category&quot;), by.x = c(function_interest,&quot;Relative_abundance&quot;,&quot;Pig_name&quot;, &quot;Category&quot;))
-}
-</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>Now we rename the piglet for a shorter name, make the correspondence
-with the database and rename functions with NA (former “-”
-functions).</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5yZXNoYXBlZF9mdW5jdGlvbnMgPSByZXNoYXBlZF9mdW5jdGlvbnMgJT4lIG11dGF0ZShQaWdfbmFtZSA9IGdzdWIoXCIoXFxcXEQpKlwiLCBcIlwiLCBQaWdfbmFtZSkpXG5cbnJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdID0gZnVuY3Rpb25zX25hbWVfY29ycmVzcCREZWZpbml0aW9uX2Z1bmN0aW9uW21hdGNoKHJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdLCBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwJENvZGVfZnVuY3Rpb24pXVxuXG5yZXNoYXBlZF9mdW5jdGlvbnNbLGZ1bmN0aW9uX2ludGVyZXN0XSA9IHJlcGxhY2VfbmEocmVzaGFwZWRfZnVuY3Rpb25zWyxmdW5jdGlvbl9pbnRlcmVzdF0sXCJVbmNsYXNzaWZpZWRcIilcbmBgYCJ9 -->
-<pre class="r"><code>
-reshaped_functions = reshaped_functions %&gt;% mutate(Pig_name = gsub(&quot;(\\D)*&quot;, &quot;&quot;, Pig_name))
-
-reshaped_functions[,function_interest] = functions_name_corresp$Definition_function[match(reshaped_functions[,function_interest], functions_name_corresp$Code_function)]
-
-reshaped_functions[,function_interest] = replace_na(reshaped_functions[,function_interest],&quot;Unclassified&quot;)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gYFsuZGF0YS5mcmFtZWAocmVzaGFwZWRfZnVuY3Rpb25zLCAsIGZ1bmN0aW9uX2ludGVyZXN0KSA6IFxuICBjb2xvbm5lcyBub24gZMOpZmluaWVzIHPDqWxlY3Rpb25uw6llc1xuIn0= -->
-<pre><code>Error in `[.data.frame`(reshaped_functions, , function_interest) : 
-  colonnes non définies sélectionnées</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="plotting-heatmaps" class="section level3">
-<h3>Plotting heatmaps</h3>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG4jZGVmaW5pdGlvbiBvZiB0aGUgdmFsdWUgdG8gcHJpbnQgb24gdGhlIGNvbG9yIHNjYWxlXG5teV9icmVha3MgPSBjKDFlLTcsIDFlLTYsIDFlLTUsIDFlLTQsIDFlLTMsIDFlLTIsIDAuMSwgMSlcblxuZ2dwbG90KHJlc2hhcGVkX2Z1bmN0aW9ucywgYWVzKFBpZ19uYW1lLCByZW9yZGVyKHJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdLCByZXNoYXBlZF9mdW5jdGlvbnMkUmVsYXRpdmVfYWJ1bmRhbmNlKSwgZmlsbD0gUmVsYXRpdmVfYWJ1bmRhbmNlKSkgK1xuICBnZW9tX3RpbGUoY29sb3VyID0gXCJ3aGl0ZVwiLCBzaXplID0gMC41KSArXG4gIHNjYWxlX2ZpbGxfZ3JhZGllbnRuKG5hbWUgPSBcImNvdW50XCIsIyBkZWZpbml0aW9uIG9mIHRoZSBjb2xvciBncmFkaWVudC5cbiAgICAgICAgICAgICAgICAgICAgdHJhbnMgPSBcImxvZ1wiLCAjY2hvc2luZyBhIGxvZ2FyeXRobWljIGNvbG9yIHNjYWxlXG4gICAgICAgICAgICAgICAgICAgIGJyZWFrcyA9IG15X2JyZWFrcywgXG4gICAgICAgICAgICAgICAgICAgIGxhYmVscyA9IG15X2JyZWFrcyxcbiAgICAgICAgICAgICAgICAgICAgbmEudmFsdWUgPSBcIiM0M0EzQjlcIiwjIHBsb3R0aW5nIHRoZSAwIGluIHRoZSBsb3dlc3QgY29sb3Igb2YgdGhlIGdyYWRpZW50XG4gICAgICAgICAgICAgICAgICAgIGNvbG91cnMgPSBjKFwiIzQzQTNCOVwiLCAgXCIjRDBFQzk3XCIsIFwiI0ZGRkZCRlwiLCBcIiNGRDk0NURcIiwgXCIjREM0RTUxXCIsIFwiIzM3MDMwM1wiKSkgK1xuICBzY2FsZV95X2Rpc2NyZXRlKGV4cGFuZD1jKDAsIDApKStcbiAgc2NhbGVfeF9kaXNjcmV0ZShleHBhbmQ9YygwLCAwKSkrXG4gIGxhYnMoZmlsbD1cIlN1bSBvZiByZWxhdGl2ZSBhYnVuZGFuY2VcIiwgdGl0bGUgPSBwYXN0ZShcIlN1bSBvZiByZWxhdGl2ZSBhYnVuZGFuY2Ugb2ZcIiwgZnVuY3Rpb25faW50ZXJlc3QsIFwiYnkgcGlnbGV0XCIpKSsgXG4gIHRoZW1lX2dyZXkoYmFzZV9zaXplPTEyKStcbiAgdGhlbWUobGluZSA9IGVsZW1lbnRfYmxhbmsoKSxcbiAgICAgICAgYXhpcy50aWNrcy54ID0gZWxlbWVudF9ibGFuaygpLFxuICAgICAgICBheGlzLnRleHQueC5ib3R0b20gPSBlbGVtZW50X3RleHQoZmFjZT1cImJvbGQuaXRhbGljXCIpLFxuICAgICAgICBheGlzLnRleHQueSA9IGVsZW1lbnRfdGV4dChmYWNlPVwiYm9sZC5pdGFsaWNcIiksXG4gICAgICAgIGF4aXMudGl0bGUueCA9IGVsZW1lbnRfYmxhbmsoKSxcbiAgICAgICAgYXhpcy50aXRsZS55ID0gZWxlbWVudF9ibGFuaygpLFxuICAgICAgICBwYW5lbC5ib3JkZXI9ZWxlbWVudF9ibGFuaygpLFxuICAgICAgICBsZWdlbmQudGV4dD1lbGVtZW50X3RleHQoZmFjZT1cImJvbGRcIiwgc2l6ZSA9IDE1KSxcbiAgICAgICAgcGxvdC50aXRsZSA9IGVsZW1lbnRfdGV4dChmYWNlPVwiYm9sZFwiLCBzaXplID0gMjApLFxuICAgICAgICBsZWdlbmQudGl0bGUgPSBlbGVtZW50X3RleHQoZmFjZT1cImJvbGRcIiwgc2l6ZSA9IDE1KSxcbiAgICAgICAgbGVnZW5kLmtleS5zaXplID0gdW5pdCgyLCBcImNtXCIpLFxuICAgICAgICBzdHJpcC50ZXh0LnkgPSBlbGVtZW50X3RleHQoYW5nbGUgPSAwLCBmYWNlID0gXCJib2xkXCIsIHNpemUgPSAxNSksXG4gICAgICAgIHN0cmlwLnRleHQueCA9IGVsZW1lbnRfdGV4dChmYWNlID0gXCJib2xkXCIsIHNpemUgPSAxNSkpK1xuICBmYWNldF9ncmlkKGNvbHMgPSB2YXJzKGZhY3RvcihyZXNoYXBlZF9mdW5jdGlvbnMkQ2F0ZWdvcnksIGxldmVscyA9IGMoXCJDb250cm9sXCIsIFwiQ29saXN0aW5cIikpKSxcbiAgICAgICAgICAgICBzY2FsZXMgPSBcImZyZWVcIixcbiAgICAgICAgICAgICBzcGFjZSA9IFwiZnJlZVwiLFxuICAgICAgICAgICAgIGxhYmVsbGVyID0gKVxuYGBgIn0= -->
-<pre class="r"><code>
-#definition of the value to print on the color scale
-my_breaks = c(1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1)
-
-ggplot(reshaped_functions, aes(Pig_name, reorder(reshaped_functions[,function_interest], reshaped_functions$Relative_abundance), fill= Relative_abundance)) +
-  geom_tile(colour = &quot;white&quot;, size = 0.5) +
-  scale_fill_gradientn(name = &quot;count&quot;,# definition of the color gradient.
-                    trans = &quot;log&quot;, #chosing a logarythmic color scale
-                    breaks = my_breaks, 
-                    labels = my_breaks,
-                    na.value = &quot;#43A3B9&quot;,# plotting the 0 in the lowest color of the gradient
-                    colours = c(&quot;#43A3B9&quot;,  &quot;#D0EC97&quot;, &quot;#FFFFBF&quot;, &quot;#FD945D&quot;, &quot;#DC4E51&quot;, &quot;#370303&quot;)) +
-  scale_y_discrete(expand=c(0, 0))+
-  scale_x_discrete(expand=c(0, 0))+
-  labs(fill=&quot;Sum of relative abundance&quot;, title = paste(&quot;Sum of relative abundance of&quot;, function_interest, &quot;by piglet&quot;))+ 
-  theme_grey(base_size=12)+
-  theme(line = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x.bottom = element_text(face=&quot;bold.italic&quot;),
-        axis.text.y = element_text(face=&quot;bold.italic&quot;),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        panel.border=element_blank(),
-        legend.text=element_text(face=&quot;bold&quot;, size = 15),
-        plot.title = element_text(face=&quot;bold&quot;, size = 20),
-        legend.title = element_text(face=&quot;bold&quot;, size = 15),
-        legend.key.size = unit(2, &quot;cm&quot;),
-        strip.text.y = element_text(angle = 0, face = &quot;bold&quot;, size = 15),
-        strip.text.x = element_text(face = &quot;bold&quot;, size = 15))+
-  facet_grid(cols = vars(factor(reshaped_functions$Category, levels = c(&quot;Control&quot;, &quot;Colistin&quot;))),
-             scales = &quot;free&quot;,
-             space = &quot;free&quot;,
-             labeller = )</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiQXZpcyA6IFVzaW5nIGBzaXplYCBhZXN0aGV0aWMgZm9yIGxpbmVzIHdhcyBkZXByZWNhdGVkIGluIGdncGxvdDIgMy40LjAuXG5QbGVhc2UgdXNlIGBsaW5ld2lkdGhgIGluc3RlYWQuXG4ifQ== -->
-<pre><code>Avis : Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-Please use `linewidth` instead.</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gYGdlb21fdGlsZSgpYDpcbiEgUHJvYmxlbSB3aGlsZSBjb21wdXRpbmcgYWVzdGhldGljcy5cbuKEuSBFcnJvciBvY2N1cnJlZCBpbiB0aGUgMXN0IGxheWVyLlxuQ2F1c2VkIGJ5IGVycm9yIGluIGBbLmRhdGEuZnJhbWVgOlxuISBjb2xvbm5lcyBub24gZMOpZmluaWVzIHPDqWxlY3Rpb25uw6llc1xuQmFja3RyYWNlOlxuICAxLiBiYXNlIChsb2NhbCkgYDxmbj5gKHgpXG4gMTkuIGJhc2U6OmBbLmRhdGEuZnJhbWVgKHJlc2hhcGVkX2Z1bmN0aW9ucywgLCBmdW5jdGlvbl9pbnRlcmVzdClcbiAyMC4gYmFzZTo6c3RvcChcInVuZGVmaW5lZCBjb2x1bW5zIHNlbGVjdGVkXCIpXG4ifQ== -->
-<pre><code>Error in `geom_tile()`:
-! Problem while computing aesthetics.
-ℹ Error occurred in the 1st layer.
-Caused by error in `[.data.frame`:
-! colonnes non définies sélectionnées
-Backtrace:
-  1. base (local) `&lt;fn&gt;`(x)
- 19. base::`[.data.frame`(reshaped_functions, , function_interest)
- 20. base::stop(&quot;undefined columns selected&quot;)</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-plot-begin eyJoZWlnaHQiOjMyOC44MDEsIndpZHRoIjo1MzIsInNpemVfYmVoYXZpb3IiOjAsImNvbmRpdGlvbnMiOltdfQ== -->
-<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAhQAAAFICAMAAAA/AJfGAAAAA1BMVEX///+nxBvIAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAwElEQVR4nO3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4NqsGAAHM5J1RAAAAAElFTkSuQmCC" /></p>
-<!-- rnb-plot-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>A second heatmap is created, with the unknown data removed.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmVzaGFwZWRfZnVuY3Rpb25zX25vX3Vua25vd24gPSByZXNoYXBlZF9mdW5jdGlvbnNbLWdyZXAocGF0dGVybiA9ICd1bmtub3dufFVuY2xhc3NpZmllZCcsIHJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdKSxdXG5gYGAifQ== -->
-<pre class="r"><code>reshaped_functions_no_unknown = reshaped_functions[-grep(pattern = &#39;unknown|Unclassified&#39;, reshaped_functions[,function_interest]),]</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gYFsuZGF0YS5mcmFtZWAocmVzaGFwZWRfZnVuY3Rpb25zLCAsIGZ1bmN0aW9uX2ludGVyZXN0KSA6IFxuICBjb2xvbm5lcyBub24gZMOpZmluaWVzIHPDqWxlY3Rpb25uw6llc1xuIn0= -->
-<pre><code>Error in `[.data.frame`(reshaped_functions, , function_interest) : 
-  colonnes non définies sélectionnées</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="removing-useless-variables-for-another-function" class="section level3">
-<h3>Removing useless variables for another function</h3>
-<p>If the user wants to re-run the production of heat maps, he needs to
-run the following command and go back to the point <a href="#getting-dataframe-for-the-selected-function">Getting dataframe
-for the selected function</a>.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucm0obGlzdCA9IGMoXCJmdW5jdGlvbnNfaW50ZXJlc3RfZmluYWxfZGF0YWZyYW1lXCIsXCJmdW5jdGlvbnNfbmFtZV9jb3JyZXNwXCIsIFwicmVzaGFwZWRfZnVuY3Rpb25zXCIsIFwicmVzaGFwZWRfZnVuY3Rpb25zX25vX3Vua25vd25cIiwgXCJyZXNoYXBlZF9mdW5jdGlvbnNfcGlnXCIsIFwiZnVuY3Rpb25faW50ZXJlc3RcIiwgXCJteV9icmVha3NcIiwgXCJzY2FsZVwiKSlcbmBgYCJ9 -->
-<pre class="r"><code>rm(list = c(&quot;functions_interest_final_dataframe&quot;,&quot;functions_name_corresp&quot;, &quot;reshaped_functions&quot;, &quot;reshaped_functions_no_unknown&quot;, &quot;reshaped_functions_pig&quot;, &quot;function_interest&quot;, &quot;my_breaks&quot;, &quot;scale&quot;))</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiQXZpcyA6IG9iamVjdCAnZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZScgbm90IGZvdW5kQXZpcyA6IG9iamVjdCAnZnVuY3Rpb25zX25hbWVfY29ycmVzcCcgbm90IGZvdW5kQXZpcyA6IG9iamVjdCAncmVzaGFwZWRfZnVuY3Rpb25zJyBub3QgZm91bmRBdmlzIDogb2JqZWN0ICdyZXNoYXBlZF9mdW5jdGlvbnNfbm9fdW5rbm93bicgbm90IGZvdW5kQXZpcyA6IG9iamVjdCAncmVzaGFwZWRfZnVuY3Rpb25zX3BpZycgbm90IGZvdW5kQXZpcyA6IG9iamVjdCAnbXlfYnJlYWtzJyBub3QgZm91bmRBdmlzIDogb2JqZWN0ICdzY2FsZScgbm90IGZvdW5kXG4ifQ== -->
-<pre><code>Avis : object &#39;functions_interest_final_dataframe&#39; not foundAvis : object &#39;functions_name_corresp&#39; not foundAvis : object &#39;reshaped_functions&#39; not foundAvis : object &#39;reshaped_functions_no_unknown&#39; not foundAvis : object &#39;reshaped_functions_pig&#39; not foundAvis : object &#39;my_breaks&#39; not foundAvis : object &#39;scale&#39; not found</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<!-- rnb-text-end -->
-</div>
 </div>
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIk1ldGFib2xpY19mdW5jdGlvbnNfYW5hbHlzaXMiDQpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sNCi0tLQ0KDQojIE1ldGFib2xpYyBmdW5jdGlvbnMgYW5hbHlzaXMNCg0KVGhlIGN1cnJlbnQgbm90ZWJvb2sgZXhwbGFpbnMgaG93IHRvIGhhbmRsZSBkYXRhIGluIG9yZGVyIHRvIGdldCB0aGUgcmVsYXRpdmUgYWJ1bmRhbmNlIG9mIGZ1bmN0aW9ucyAoZW56eW1lcywgR08sIC4uLikgYW5kIGRpZmZlcmVudGlhdGUgaXQgYnkgdGhlIGNsYXNzIG9mIHRoZSBpbmRpdmlkdWFsIChjb250cm9sIG9yIGNvbGlzdGluKS4NCg0KIyMgSW1wb3J0IGxpYnJhcmllcw0KDQpgYGB7cn0NCmxpYnJhcnkoZ2dwbG90MikNCmxpYnJhcnkoaHJicnRoZW1lcykNCmxpYnJhcnkodGlkeXZlcnNlKQ0KbGlicmFyeSh0aWR5cikNCmxpYnJhcnkoUkNvbG9yQnJld2VyKQ0KbGlicmFyeShyZXNoYXBlKQ0KYGBgDQoNCiMjIEFzc29jaWF0aW9uIGJldHdlZW4gdGhlIHBpZ2xldCBhbmQgaXRzIGNvbmRpdGlvbg0KDQpXZSBhc3NvY2lhdGUgdHdvIGxpc3RzIDoNCg0KLSAgIGBuYW1lX3NhbXBsZWAgOiBuYW1lcyBvZiB0aGUgcGlnbGV0IHdoaWNoIGFwcGVhciBpbiBjb2x1bW5zLiBUaGUgbmFtZSBhbmQgdGhlIGNvbHVtbiBuZWVkIHRvIGJlIHRoZSBzYW1lIGJlY2F1c2Ugd2UgdXNlIHRoZSBuYW1lX3NhbXBsZSBhcyBhIHZhcmlhYmxlIHRvIGdldCBhbGwgdGhlIGluZGl2aWR1YWxzIGluIGZ1cnRoZXIgcGFydHMuDQoNCi0gICBgY2F0b2dvcnlgIDogY2xhc3Mgb2YgdGhlIHBpZ2xldC4gVGhlIHZlY3RvciBiZWdpbnMgd2l0aCB0aGUgY2F0ZWdvcnkgb2YgdGhlIGZpcnMgcGlnbGV0LCB0aGUgbGFzdCBjYXRlZ29yeSBnaXZlbiBjb3JyZXNwb25kcyB0byB0aGUgbGFzdCBwaWdsZXQgKGhlcmUgdGhlIDM0dGggcGlnbGV0KSAuDQoNCmBgYHtyfQ0KDQpuYW1lX3NhbXBsZSA9IGMoKSAjZW1wdHkgbGlzdA0KDQpmb3IgKG5iX3BpZyBpbiAxOjM0KSB7DQogIGlmIChuYl9waWcgPCAxMCl7DQogICAgbmFtZV9zYW1wbGUgPSBjKG5hbWVfc2FtcGxlLCBwYXN0ZSgiSG9sb3BpZ19jb2xvbjAiLCBuYl9waWcsICIuZmVhdHVyZUNvdW50cy50c3YiLCBzZXAgPSAiIikpDQogIH0gZWxzZSB7DQogICAgbmFtZV9zYW1wbGUgPSBjKG5hbWVfc2FtcGxlLCBwYXN0ZSgiSG9sb3BpZ19jb2xvbiIsIG5iX3BpZywgIi5mZWF0dXJlQ291bnRzLnRzdiIsIHNlcCA9ICIiKSkNCiAgfQ0KfQ0KY2F0ZWdvcnkgPSBjKCJDb250cm9sIiwgIkNvbGlzdGluIiwgIkNvbnRyb2wiLCAiQ29udHJvbCIsICJDb250cm9sIiwgIkNvbnRyb2wiLA0KICAgICAgICAgICAgICJDb2xpc3RpbiIsICJDb2xpc3RpbiIsICJDb250cm9sIiwgIkNvbGlzdGluIiwgIkNvbGlzdGluIiwgIkNvbnRyb2wiLA0KICAgICAgICAgICAgICJDb250cm9sIiwgIkNvbnRyb2wiLCAiQ29udHJvbCIsICJDb250cm9sIiwgIkNvbnRyb2wiLCAiQ29saXN0aW4iLA0KICAgICAgICAgICAgICJDb2xpc3RpbiIsICJDb2xpc3RpbiIsICJDb2xpc3RpbiIsICJDb2xpc3RpbiIsICJDb250cm9sIiwgIkNvbnRyb2wiLA0KICAgICAgICAgICAgICJDb250cm9sIiwgIkNvbnRyb2wiLCAiQ29udHJvbCIsICJDb2xpc3RpbiIsICJDb250cm9sIiwgIkNvbGlzdGluIiwNCiAgICAgICAgICAgICAiQ29saXN0aW4iLCAiQ29saXN0aW4iLCAiQ29saXN0aW4iLCAiQ29saXN0aW4iKQ0KDQpkYXRhX2NhdF9zYW1wbGUgPSBkYXRhLmZyYW1lKG5hbWVfc2FtcGxlLCBjYXRlZ29yeSkNCmBgYA0KDQpGcm9tIHRoaXMgd2UgdHJhbnNwb3NlIHRoZSBkYXRhIGZyYW1lIHRvIGdldCBlYWNoIHBpZ2xldCBuYW1lJ3MgYXMgY29sdW1ucyBhbmQgdGhlIGNhdGVnb3J5IGFzIHRoZSB2YWx1ZSBvZiB0aGUgcm93LiBJdCB3aWxsIGJlIGZ1cnRoZXIgdXNlZCBmb3IgdGhlIGNyZWF0aW9uIG9mIGhlYXRtYXBzLg0KDQpgYGB7cn0NCiMgQWRkIHRoZSBjYXRlZ29yeSBvZiB0aGUgcGlnIChjb2xpc3RpbiBvciBjb250cm9sKQ0KdHJhbnNwb3NlZF9jYXRfcGlnID0gdChkYXRhX2NhdF9zYW1wbGUpDQpkYXRhZnJhbWVfcGlnX2NhdCA9IGRhdGEuZnJhbWUodHJhbnNwb3NlZF9jYXRfcGlnKQ0KbmFtZXMoZGF0YWZyYW1lX3BpZ19jYXQpID0gYXMubWF0cml4KGRhdGFmcmFtZV9waWdfY2F0WzEsXSkgI21ha2UgdGhlIGZpcnN0IHJvdyBhcyB0aGUgaGVhZGVyDQpkYXRhZnJhbWVfcGlnX2NhdCA9IGRhdGFmcmFtZV9waWdfY2F0Wy0xLF0gI3JlbW92ZSB0aGUgZmlyc3Qgcm93IG5vdw0KYGBgDQoNCiMjIFNldHRpbmdzIHRvIGxvYWQgdGhlIHByZXByb2Nlc3NlZCBkYXRhDQoNClB1dCB0aGUgb3V0cHV0IHByZWZpeCB1c2VkIGluIC9zY3JpcHRzL1Jhd19kYXRhX3NwbGl0dGVyIGluIGBwYXR0ZXJuID1gIC4gQmUgY2FyZWZ1bCB0aGUgY3VycmVudCB3b3JraW5nIGRpcmVjdG9yeSBpcyBub3QgdGhlIGdlbmVyYWwgZm9sZGVyLiBUaGVuIHlvdSBuZWVkIHRvIGVzY2FwZSBpdCAoLi4pIGFuZCBlbnRlciBpbiB0aGUgZm9sZGVyIHdoZXJlIHRoZXJlIGFyZSB0aGUgc3BsaXQgZmlsZXMgZnJvbSByYXcgbWV0YWJvbGljIGRhdGEgKC9yZWZpbmVkX2RhdGEpLiBUaGUgbGlzdCBvZiB0aGUgZmlsZXMgaXMgc2F2ZWQgaW4gdGhlIGRpcmVjdG9yeSB2YXJpYWJsZS4NCg0KYGBge3J9DQoNCmRpcmVjdG9yeT1saXN0LmZpbGVzKHBhdGggPSAiLi4vcmVmaW5lZF9kYXRhIiwgcGF0dGVybiA9ICJBbm5vdCIpICNSZXRyaWV2ZSBmaWxlIG5hbWUgaW4gcGF0aCB3aXRjaCBjb250YWlucyB0aGUgcGF0dGVybg0KYGBgDQoNCiMjIyBTdW0gb2YgcmVhZHMgcGVyIGluZGl2aWR1YWwNCg0KV2Ugc2V0IHVwIGFuIGVtcHR5IGRhdGEgZnJhbWUgKGBuYl9yZWFkc19waWdgKSBpbiBvcmRlciB0byBnZXQgdGhlIHRvdGFsIHN1bSBvZiByZWFkcyBwZXIgaW5kaXZpZHVhbC4gSXQgd2lsbCBiZSBmdXJ0aGVyIHVzZSBmb3IgY2FsY3VsYXRpbmcgdGhlIHJlbGF0aXZlIGFidW5kYW5jZS4NCg0KYGBge3J9DQoNCmNvbHVtbnNfcmVhZHMgPSBjKG5hbWVfc2FtcGxlKQ0Kcm93c19yZWFkcyAgICA9IGMoZGlyZWN0b3J5KQ0KbmJfcmVhZHNfcGlnICA9IGRhdGEuZnJhbWUobWF0cml4KG5yb3cgPSBsZW5ndGgoZGlyZWN0b3J5KSwgbmNvbCA9IGxlbmd0aChjb2x1bW5zX3JlYWRzKSkpDQpjb2xuYW1lcyhuYl9yZWFkc19waWcpID0gY29sdW1uc19yZWFkcw0Kcm93bmFtZXMobmJfcmVhZHNfcGlnKSA9IHJvd3NfcmVhZHMNCg0KZm9yIChmaWxlIGluIGRpcmVjdG9yeSkgew0KICANCiAgIyBNYW5pcHVsYXRpb24gb2YgZWFjaCBzcGxpdCBmaWxlDQogIGZpbGVwYXRoICA9IHBhc3RlKCIuLi9yZWZpbmVkX2RhdGEvIiwgZmlsZSwgc2VwID0gIiIpDQogIGRhdGEgICAgICA9IHJlYWQuY3N2KGZpbGVwYXRoLCBzZXAgPSAiOyIpDQogIA0KICAjIENvdW50ZXIgb2YgdG90YWwgcmVhZHMgZm9yIGVhY2ggcGlnIGluIGVhY2ggZmlsZQ0KICBmb3IgKG5hbWVfcGlnIGluIG5hbWVfc2FtcGxlKSB7DQogICAgc3VtX3JlYWRzX3BpZyA9IHN1bShuYS5vbWl0KGRhdGFbLCBjb2xuYW1lcyhkYXRhKVtjb2xuYW1lcyhkYXRhKSA9PSBuYW1lX3BpZ11dKSkNCiAgICBuYl9yZWFkc19waWdbZmlsZSwgbmFtZV9waWddID0gc3VtX3JlYWRzX3BpZw0KICB9DQp9DQoNCm5iX3JlYWRzX3BpZ1tucm93KG5iX3JlYWRzX3BpZykrMSxdID0gY29sU3VtcyhuYl9yZWFkc19waWcpDQpyb3duYW1lcyhuYl9yZWFkc19waWcpW25yb3cobmJfcmVhZHNfcGlnKV0gPSAnVG90YWwnDQoNCmBgYA0KDQojIyMgUmVtb3ZpbmcgdXNlbGVzcyB2YXJpYWJsZXMNCg0KQ2xlYW4gdXAgdGhlIGVudmlyb25tZW50IHRvIHJlbW92ZSB1c2VsZXNzIHZhcmlhYmxlcy4gT3B0aW9uYWwgc3RlcC4NCg0KYGBge3J9DQpybShsaXN0ID0gYygiY2F0ZWdvcnkiLCAiY29sdW1uc19yZWFkcyIsICJmaWxlIiwgImZpbGVwYXRoIiwgIm5hbWVfcGlnIiwgIm5iX3BpZyIsICJyb3dzX3JlYWRzIiwgInN1bV9yZWFkc19waWciKSkNCmBgYA0KDQojIyBXb3JrIG9uIHRoZSBzcGxpdCBmaWxlcw0KDQpUbyB0cmVhdCB0aGUgZGF0YSBpcyBhbiBlYXNpZXIgd2F5LCB3ZSBoYXZlIHNwbGl0IGl0IGluIGRpZmZlcmVudCBmaWxlcyBhbmQgbm93IHdlIHdhbnQgdG8gYWdncmVnYXRlIHRoZSBkYXRhIG9mIGludGVyZXN0IGxpdHRsZSBieSBsaXR0bGUsIGZpbGUgcGVyIGZpbGUuIFRvIGRvIHNvLCB3ZSB1c2UgYSBmb3ItbG9vcCB0byBsb29rIGF0IGVhY2ggZmlsZS4gTG9hZGluZyB0aGUgY29tcGxldGUgcmF3IGRhdGEgaXMgbG9uZ2VyIHRoYW4gbG9hZGluZyBzZXZlcmFsIHNtYWxsZXIgZmlsZXMuDQoNCiMjIyBSZWxhdGl2ZSBBYnVuZGFuY2UNCg0KQ3JlYXRpbmcgZW1wdHkgZGF0YSBmcmFtZS4gV2lsbCBiZSB1c2UgaW4gdGhlIGZvci1sb29wIHRvIHN0b3JlIHRoZSBmaWx0ZXJlZCBkYXRhLg0KDQpgYGB7cn0NCmNvbHVtbnNfZmlsdGVyZWQgPSBjKG5hbWVfc2FtcGxlLCAiQ09HX2NhdGVnb3J5IiwgIkdPcyIsICJFQyIsICJLRUdHX2tvIiwgIktFR0dfUGF0aHdheSIsICJLRUdHX1JlYWN0aW9uIiwgIkNBWnkiLCAiUEZBTXMiLCJLRUdHX01vZHVsZSIpDQpkYXRhX2ZpbHRlcmVkID0gZGF0YS5mcmFtZShtYXRyaXgobnJvdyA9IDAsIG5jb2wgPSBsZW5ndGgoY29sdW1uc19maWx0ZXJlZCkpKQ0KY29sbmFtZXMoZGF0YV9maWx0ZXJlZCkgPSBjb2x1bW5zX2ZpbHRlcmVkDQoNCmBgYA0KDQoxLiAgV2UgcmVtb3ZlIHVubmVjZXNzYXJ5IGNvbHVtbnMgYW5kIHJvd3Mgd2l0aCBTdW0gPSAwIChnZW5lcyB3aGVyZSBubyByZWFkcyBtYXBwZWQpDQoyLiAgV2UgY2FsY3VsYXRlIHRoZSByZWxhdGl2ZSBhYnVuZGFuY2UgcGVyIGluZGl2aWR1YWxzLg0KMy4gIFdlIG9ubHkgc2VsZWN0IHJvd3Mgd2hpY2ggcHJlc2VudCBtb3JlIHRoYW4gOCB2YWx1ZXMgZm9yIGEgc2luZ2xlIGdyb3VwLiBUaGlzIG1lYW5zIGlmIHRoZSBjb2xpc3RpbiBncm91cCBnZXRzIG1vcmUgdGhhbiA4IHZhbHVlcyAoaS5lLiB2YWx1ZXMgZGlmZmVyZW50IGZyb20gMCksIHdlIGtlZXAgdGhlIGVudGlyZSByb3cuIElmIHRoZSBjb2xpc3RpbiBncm91cCBnZXRzIGxlc3MgdGhhbiA4IHZhbHVlcyBidXQgdGhlIGNvbnRyb2wgZ3JvdXAgZG9lcywgd2Uga2VlcCB0aGUgZW50aXJlIHJvdy4gQnV0IG5laXRoZXIgdGhlIGNvbGlzdGluIGdyb3VwIG9yIHRoZSBjb250cm9sIGdyb3VwIGdldHMgbW9yZSB0aGFuIDggdmFsdWVzLCB3ZSBkcm9wIHRoZSByb3cuDQoNCmBgYHtyfQ0KDQpmb3IgKGZpbGUgaW4gZGlyZWN0b3J5KSB7DQogIA0KICAjIE1hbmlwdWxhdGlvbiBvZiBlYWNoIHNwbGl0IGZpbGUNCiAgZmlsZXBhdGggPSBwYXN0ZSgiLi4vcmVmaW5lZF9kYXRhLyIsIGZpbGUsIHNlcCA9ICIiKQ0KICBkYXRhID0gcmVhZC5jc3YoZmlsZXBhdGgsIHNlcCA9ICI7IikNCiAgDQogIGRhdGEgPSBkYXRhICU+JSBzZWxlY3QoLWMoc2VlZF9jbHVzdGVyLCBzZWVkX29ydGhvbG9nLCBldmFsdWUsIHNjb3JlLCBCUklURSwgS0VHR19Nb2R1bGUsIEtFR0dfcmNsYXNzLCBLRUdHX1RDLCBCaUdHX1JlYWN0aW9uLCBlZ2dOT0dfT0dzLCBtYXhfYW5ub3RfbHZsLCBEZXNjcmlwdGlvbiwgc3NlcWlkLCBzdGl0bGUpKQ0KICBkYXRhX1JlbEFiZF9tb2QgPSBzdWJzZXQoZGF0YSwgc3VtICE9IDApDQogIGRhdGFfUmVsQWJkX21vZCA9IGRhdGFfUmVsQWJkX21vZCAlPiUgc2VsZWN0KC1zdW0pDQoNCiAgIyBDcmVhdGluZyBhIG5ldyBkYXRhZnJhbWUgd2l0aCByZWxhdGl2ZSBhYnVuZGFuY2VzDQogIGZvciAobmFtZSBpbiBuYW1lX3NhbXBsZSkgew0KICBkYXRhX1JlbEFiZF9tb2RbLG5hbWVdID0gZGF0YV9SZWxBYmRfbW9kWyxuYW1lXSAvIG5iX3JlYWRzX3BpZ1siVG90YWwiLG5hbWVdICNEaXZpZGluZyBlYWNoIGNlbGwgYnkgdGhlIHRvdGFsIG9mIHJlYWRzIGZvciB0aGUgaW5kaXZpZHVhbCBhbmQgYWRkIGl0IHRvIHRoZSBuZXcgZGF0YWZyYW1lDQogIH0NCiAgIyBHaXZpbmcgdXAgdGhlIHJvd3MgaWYgdGhlcmUgaXMgbGVzcyB0aGFuIDggdmFsdWVzIGZvciBib3RoIGNhdGVnb3JpZXMuKGkuZS4gPS89IDApDQogIGRhdGFfUmVsQWJkX3Rlc3RDb2xpc3RpbiA9IGRhdGFfUmVsQWJkX21vZCAlPiUgc2VsZWN0KGRhdGFfY2F0X3NhbXBsZSRuYW1lX3NhbXBsZVtkYXRhX2NhdF9zYW1wbGUkY2F0ZWdvcnkgPT0gIkNvbGlzdGluIl0pICU+JSBtdXRhdGUobmJfZW1wdHlfc2FtcGxlX0NvbGlzaXRpbiA9IHJvd1N1bXMoLiA9PSAwKSkNCiAgZGF0YV9SZWxBYmRfdGVzdENvbnRyb2wgPSBkYXRhX1JlbEFiZF9tb2QgJT4lIHNlbGVjdChkYXRhX2NhdF9zYW1wbGUkbmFtZV9zYW1wbGVbZGF0YV9jYXRfc2FtcGxlJGNhdGVnb3J5ID09ICJDb250cm9sIl0pICU+JSBtdXRhdGUobmJfZW1wdHlfc2FtcGxlX0NvbnRyb2wgPSByb3dTdW1zKC4gPT0gMCkpDQogIGRhdGFfUmVsQWJkX2ZpbHRlcmVkID0gc3Vic2V0KGRhdGFfUmVsQWJkX21vZCwgZGF0YV9SZWxBYmRfdGVzdENvbGlzdGluJG5iX2VtcHR5X3NhbXBsZV9Db2xpc2l0aW4gPD0gOCB8IGRhdGFfUmVsQWJkX3Rlc3RDb250cm9sJG5iX2VtcHR5X3NhbXBsZV9Db250cm9sIDw9IDgpICNLZWVwaW5nIHJvd3MgaWYgdGhlcmUgaXMgbGVzcyB0aGFuIDggdGltZXMgMCBpbiBvbmUgY2F0ZWdvcnkNCiAgDQogICMgQmluZGluZyB0aGUgcmVzdWx0IGZyb20gYSBmaWxlLCBvbmUgYWZ0ZXIgdGhlIG90aGVyDQogIGRhdGFfZmlsdGVyZWQgPSBtZXJnZShkYXRhX2ZpbHRlcmVkLGRhdGFfUmVsQWJkX2ZpbHRlcmVkLCBhbGwgPSBUUlVFKQ0KDQp9DQoNCmBgYA0KDQojIyMgRXhwb3J0YXRpb24gb2YgdGhlIGZpbHRlcmVkIGRhdGENCg0KYGBge3J9DQoNCndyaXRlLnRhYmxlKGRhdGFfZmlsdGVyZWQsIGZpbGUgPSAiLi4vcmVmaW5lZF9kYXRhL1F1YW50aWZpY2F0aW9uc19hbmRfZnVuY3Rpb25hbF9hbm5vdGF0aW9uc19maWx0ZXJlZCIsIHNlcCA9ICdcdCcsIHJvdy5uYW1lcyA9IEZBTFNFLCBxdW90ZSA9IEZBTFNFKQ0KDQpgYGANCg0KIyMjIFJlbW92aW5nIHVzZWxlc3MgdmFyaWFibGVzDQoNCkNsZWFuIHVwIHRoZSBlbnZpcm9ubWVudCB0byByZW1vdmUgdXNlbGVzcyB2YXJpYWJsZXMuIE9wdGlvbmFsIHN0ZXAuDQoNCmBgYHtyfQ0Kcm0obGlzdCA9IGMoImRhdGEiLCAiZGF0YV9SZWxBYmRfZmlsdGVyZWQiLCAiZGF0YV9SZWxBYmRfdGVzdENvbGlzdGluIiwgImRhdGFfUmVsQWJkX3Rlc3RDb250cm9sIiwgImRhdGFfUmVsQWJkX21vZCIsICJmaWxlIiwgImZpbGVwYXRoIiwgIm5hbWUiLCAiY29sdW1uc19maWx0ZXJlZCIpKQ0KYGBgDQoNCiMjIEdldHRpbmcgZGF0YWZyYW1lIGZvciB0aGUgc2VsZWN0ZWQgZnVuY3Rpb24NCg0KQWxsIHRoZSBwcm9jZXNzaW5nIGJlZm9yZSBuZWVkcyB0byBiZSBydW4gb25lIHRpbWUuIFRoZSBmb2xsb3dpbmcgcHJvY2Vzc2luZyBzdGVwcyBjYW4gYmUgcnVuIHNldmVyYWwgdGltZXMgKGZvciBlYWNoIGZ1bmN0aW9uIG9mIGludGVyZXN0KSBvbmUgdGhlIHNhbWUgYGRhdGFfZmlsdGVyZWRgIGRhdGFmcmFtZSBiZWNhdXNlIGFsbCB0aGUgcG9zc2libGUgZnVuY3Rpb25zIHdlcmUga2VwdC4NCg0KIyMjIFNldHRpbmcgdGhlIGZ1bmN0aW9uIG9mIGludGVyZXN0DQoNClRoZSB1c2VyIG5lZWRzIHRvIGZpbGwgdGhlIHR5cGUgb2YgZnVuY3Rpb24gaGUgaGFzIGludGVyZXN0IGZvci4gVGhlcmUgaXMgcHJlZGV0ZXJtaW5lZCBjaG9pY2VzLCBpdCBvbmx5IGNvdWxkIGJlIHRoZSBuYW1lIG9mIGEgY29sdW1uIGtlcHQgaW4gdGhlIGBkYXRhX2ZpbHRlcmVkYCBkYXRhIGZyYW1lLg0KDQpgYGB7cn0NCiNjaG9vc2UgdGhlIGZ1bmN0aW9uIG9mIGludGVyZXN0DQpmdW5jdGlvbl9pbnRlcmVzdCA9IGMoIkNPR19jYXRlZ29yeSIpICNzZXZlcmFsIGNob2ljZXMgYnV0IG9uZSBhdCB0aGUgdGltZQ0KZnVuY3Rpb25faW50ZXJlc3QgPSBjKCJHT3MiKQ0KZnVuY3Rpb25faW50ZXJlc3QgPSBjKCJLRUdHX2tvIikNCmZ1bmN0aW9uX2ludGVyZXN0ID0gYygiS0VHR19QYXRod2F5IikNCmZ1bmN0aW9uX2ludGVyZXN0ID0gYygiS0VHR19SZWFjdGlvbiIpDQpmdW5jdGlvbl9pbnRlcmVzdCA9IGMoIkNBWnkiKQ0KZnVuY3Rpb25faW50ZXJlc3QgPSBjKCJQRkFNcyIpDQpmdW5jdGlvbl9pbnRlcmVzdCA9IGMoIkVDIikNCmZ1bmN0aW9uX2ludGVyZXN0ID0gYygiS0VHR19Nb2R1bGUiKQ0KDQpgYGANCg0KIyMjIEdldHRpbmcgdGhlIHN1bSBvZiB0aGUgcmVsYXRpdmUgYWJ1bmRhbmNlcyBieSB0aGUgZnVuY3Rpb24NCg0KYGBge3J9DQoNCiMgS2VlcGluZyBjb2x1bW5zIG9mIGludGVyZXN0IGFuZCBjcmVhdGluZyBhIG5ldyBkYXRhZnJhbWUNCmZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhID0gZGF0YV9maWx0ZXJlZFssYyhmdW5jdGlvbl9pbnRlcmVzdCwgbmFtZV9zYW1wbGUpXQ0KICANCiMgU3VtbWluZyBjb2x1bW5zIGJ5IHRoZSBuYW1lIG9mIHRoZSBmdW5jdGlvbiBpbiBhIGRhdGFmcmFtZQ0KZnVuY3Rpb25zX2ludGVyZXN0X2RhdGEgPSBhZ2dyZWdhdGUoeCA9IGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhWywgY29sbmFtZXMoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGEpW2NvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhKSAhPSBmdW5jdGlvbl9pbnRlcmVzdCBdXSxsaXN0KGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhWyxmdW5jdGlvbl9pbnRlcmVzdF0pLCBGVU49c3VtKQ0KY29sbmFtZXMoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGEpW2NvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhKSA9PSAnR3JvdXAuMSddIDwtIGZ1bmN0aW9uX2ludGVyZXN0DQogIA0KYGBgDQoNCiMjIyBBZ2dyZWdhdGluZyBzYW1lIGZ1bmN0aW9ucw0KDQpEZXBlbmRpbmcgb24gdGhlIHR5cGUgb2YgZnVuY3Rpb24gb2YgaW50ZXJlc3QsIHNvbWV0aW1lcyBhIHNhbWUgcm93IGRlc2NyaWJlIGRpZmZlcmVudCBmdW5jdGlvbnMuIEl0J3MgYmVjYXVzZSB0aGUgYW5ub3RhdGlvbiBhdCB0aGUgZmlyc3QgcGxhY2Ugd2FzIGRvdWJsZSwgdHJpcGxlLCAuLi4gLiBTbyB3ZSBuZWVkIHRvIHNlcGFyYXRlIHRoZSByb3dzIGJ5IHRoZWlyIGNhdGVnb3JpZXMgYnV0IHRoZSBzZXBhcmF0b3IgZGVwZW5kcyBvZiB0aGUgdHlwZSBvZiBmdW5jdGlvbiwgd2UgdXNlIGFuIGlmLWxvb3AgdG8gZ28gdGhyb3VnaCBlYWNoIGNhc2UuDQoNCmBgYHtyfQ0KDQppZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gIkNPR19jYXRlZ29yeSIpIHsNCiAgZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtID0gc2VwYXJhdGVfcm93cyhmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSwgZnVuY3Rpb25faW50ZXJlc3QsIHNlcCA9ICIiLCBjb252ZXJ0ID0gVFJVRSkNCiAgDQogIGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bVssIGZ1bmN0aW9uX2ludGVyZXN0XVtmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW1bLCBmdW5jdGlvbl9pbnRlcmVzdF09PSIiXSA8LSBOQQ0KDQogIGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSA9IG5hLm9taXQoZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtKQ0KDQp9IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09ICJHT3MiIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gIkVDIiB8IGZ1bmN0aW9uX2ludGVyZXN0ID09ICJLRUdHX2tvIiB8IGZ1bmN0aW9uX2ludGVyZXN0ID09ICJLRUdHX1BhdGh3YXkiIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gIktFR0dfUmVhY3Rpb24iIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gIkNBWnkiIHwgZnVuY3Rpb25faW50ZXJlc3QgPT0gIlBGQU1zIiB8IGZ1bmN0aW9uX2ludGVyZXN0ID09ICJLRUdHX01vZHVsZSIpIHsNCiAgZnVuY3Rpb25zX2ludGVyZXN0X2RhdGFfc3VtID0gc2VwYXJhdGVfcm93cyhmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSwgZnVuY3Rpb25faW50ZXJlc3QsIHNlcCA9ICIsIiwgY29udmVydCA9IFRSVUUpDQp9DQoNCmBgYA0KDQpSZWxhdGl2ZSBhYnVuZGFuY2VzIHN0YXkgdGhlIHNhbWUgZm9yIHNlcGFyYXRlIHJvd3MsIHdlIGhhdmUgcmUtc3VtIHRoZSByZWxhdGl2ZSBhYnVuZGFuY2VzIGJ5IHRoZSBuYW1lIG9mIHRoZSBmdW5jdGlvbi4gV2UgaGF2ZSBkcm9wcGVkIGR1cGxpY2F0ZWQgcm93cyB3aGljaCBwcmVzZW50IGEgTkEgdmFsdWUgaW4gdGhlIGZ1bmN0aW9uIG5hbWUgKHByb2JsZW0gb25seSB3aXRoIHRoZSBtYW5uZXIgb2YgdGhlIENPR19jYXRlZ29yeSB3YXMgY3JlYXRlZCBpbiB0aGUgcmF3IGRhdGEpLg0KDQpgYGB7cn0NCg0KIyBTdW1taW5nIGNvbHVtbnMgYnkgdGhlIG5hbWUgb2YgdGhlIGZ1bmN0aW9uIGluIGEgZGF0YWZyYW1lDQpmdW5jdGlvbnNfaW50ZXJlc3RfZmluYWxfZGF0YWZyYW1lID0gYWdncmVnYXRlKHggPSBmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW1bLCBjb2xuYW1lcyhmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW0pW2NvbG5hbWVzKGZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSkgIT0gZnVuY3Rpb25faW50ZXJlc3RdXSwgYnkgPSBmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YV9zdW1bLCBmdW5jdGlvbl9pbnRlcmVzdF0sIEZVTj1zdW0pDQoNCmZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWVbKGdyZXBsKCItIiwgZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZVssZnVuY3Rpb25faW50ZXJlc3RdKSksZnVuY3Rpb25faW50ZXJlc3RdIDwtICdVbmNsYXNzaWZpZWQnDQoNCg0KYGBgDQoNCiMjIyBSZW1vdmluZyB1c2VsZXNzIHZhcmlhYmxlcw0KDQpDbGVhbiB1cCB0aGUgZW52aXJvbm1lbnQgdG8gcmVtb3ZlIHVzZWxlc3MgdmFyaWFibGVzLiBPcHRpb25hbCBzdGVwLg0KDQpgYGB7cn0NCnJtKGxpc3QgPSBjKCJmdW5jdGlvbnNfaW50ZXJlc3RfZGF0YSIsImZ1bmN0aW9uc19pbnRlcmVzdF9kYXRhX3N1bSIpKQ0KYGBgDQoNCiMjIFBsb3R0aW5nIGhlYXRtYXAgZm9yIHRoZSBzZWxlY3RlZCBmdW5jdGlvbnMNCg0KIyMjIEltcG9ydGluZyB0aGUgZGF0YWJhc2UgZm9yIHRoZSBjb3JyZXNwb25kZW5jZQ0KDQpXZSB1c2UgYSBkYXRhYmFzZSB0byBnZXQgdGhlIGNvcnJlc3BvbmRlbmNlIGJldHdlZW4gdGhlIGNvZGUgaW4gdGhlIGRhdGEgdG8gYSBtZWFuaW5nZnVsIG5hbWUuIFRoZSB1c2VyIGNhbiBjaG9vc2Ugd2hpY2ggZGF0YWJhc2Ugd2lsbCBiZSB1c2UgZm9yIGEgc2VsZWN0ZWQgZnVuY3Rpb24uDQovIVwgOiBUaGVyZSBhcmUgbm8gY29ycmVzcG9uZGluZyB0YWJsZXMgKHlldCkgZm9yIHRoZSBHT3MsIEtFR0dfUmVhY3Rpb24sIENBWnkgYW5kIFBGQU1zLg0KDQpgYGB7cn0NCg0KaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09ICJDT0dfY2F0ZWdvcnkiKSAgew0KICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoIi4uL3Jlc3NvdXJjZXMvZnVuY3Rpb25zX0NPR19jYXRlZ29yeS5jc3YiLCBzZXAgPSAiOyIpDQp9IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09ICJHT3MiKSAgICB7DQogIGZ1bmN0aW9uc19uYW1lX2NvcnJlc3AgPSByZWFkLmNzdigiLi4vcmVzc291cmNlcy8uY3N2Iiwgc2VwID0gIjsiKQ0KfSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSAiRUMiKSAgICAgew0KICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoIi4uL3Jlc3NvdXJjZXMvRUNfZXF1aXZhbGVuY2VzX25vX3Vua25vd24uY3N2Iiwgc2VwID0gIjsiKQ0KfSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSAiS0VHR19rbyIpICAgICAgICB7DQogIGZ1bmN0aW9uc19uYW1lX2NvcnJlc3AgPSByZWFkLmNzdigiLi4vcmVzc291cmNlcy9LRUdHX2tvX2ZpbmFsLmNzdiIsIHNlcCA9ICI7IikNCn0gZWxzZSBpZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gIktFR0dfUGF0aHdheSIpICAgew0KICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoIi4uL3Jlc3NvdXJjZXMvS0VHR19wYXRod2F5LmNzdiIsIHNlcCA9ICI7IikNCn0gZWxzZSBpZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gIktFRUdfUmVhY3Rpb24iKSAgew0KICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoIi4uL3Jlc3NvdXJjZXMvLmNzdiIsIHNlcCA9ICI7IikNCn0gZWxzZSBpZiAoZnVuY3Rpb25faW50ZXJlc3QgPT0gIkNBWnkiKSAgIHsNCiAgZnVuY3Rpb25zX25hbWVfY29ycmVzcCA9IHJlYWQuY3N2KCIuLi9yZXNzb3VyY2VzLy5jc3YiLCBzZXAgPSAiOyIpDQp9IGVsc2UgaWYgKGZ1bmN0aW9uX2ludGVyZXN0ID09ICJQRkFNcyIpICB7DQogIGZ1bmN0aW9uc19uYW1lX2NvcnJlc3AgPSByZWFkLmNzdigiLi4vcmVzc291cmNlcy8uY3N2Iiwgc2VwID0gIjsiKQ0KfSBlbHNlIGlmIChmdW5jdGlvbl9pbnRlcmVzdCA9PSAiS0VHR19Nb2R1bGUiKSAgew0KICBmdW5jdGlvbnNfbmFtZV9jb3JyZXNwID0gcmVhZC5jc3YoIi4uL3Jlc3NvdXJjZXMvS0VHR19tb2R1bGUuY3N2Iiwgc2VwID0gIjsiKQ0KfQ0KYGBgDQoNCiMjIyBSZXNoYXBpbmcgdGhlIGRhdGEgZm9yIHRoZSBoZWF0bWFwDQoNCkEgaGVhdG1hcCBuZWVkcyBhIGNlcnRhaW4gc2hhcGUgZm9yIHRoZSBkYXRhIDogZm91ciBjb2x1bW5zIHdpdGggdGhlIG5hbWUgb2YgdGhlIGZ1bmN0aW9uLCBpdHMgcmVsYXRpdmUgYWJ1bmRhbmNlIHBlciBpbmRpdmlkdWFscyBhbmQgdGhlIGNhdGVnb3J5IG9mIHRoZSBwaWdsZXQgKGNvbnRyb2wgb3IgY29saXN0aW4pLg0KDQpgYGB7cn0NCg0KcmVzaGFwZWRfZnVuY3Rpb25zID0gZGF0YS5mcmFtZShtYXRyaXgobnJvdyA9IDAsIG5jb2wgPSA0KSkNCmNvbG5hbWVzKHJlc2hhcGVkX2Z1bmN0aW9ucykgPSBjKGZ1bmN0aW9uX2ludGVyZXN0LCJSZWxhdGl2ZV9hYnVuZGFuY2UiLCJQaWdfbmFtZSIsIkNhdGVnb3J5IikNCg0KZm9yIChuYW1lX3BpZyBpbiBuYW1lX3NhbXBsZSkgew0KICByZXNoYXBlZF9mdW5jdGlvbnNfcGlnID0gZGF0YS5mcmFtZShmdW5jdGlvbnNfaW50ZXJlc3RfZmluYWxfZGF0YWZyYW1lWyxmdW5jdGlvbl9pbnRlcmVzdF0sIGZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWVbY29sbmFtZXMoZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZSkgPT0gbmFtZV9waWddKQ0KICByZXNoYXBlZF9mdW5jdGlvbnNfcGlnWydwaWcnXSA9IHJlcChuYW1lX3BpZywgbGVuZ3RoKGZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWVbLGZ1bmN0aW9uX2ludGVyZXN0XSkpDQogIHJlc2hhcGVkX2Z1bmN0aW9uc19waWdbJ2NhdGVnb3J5J10gPSByZXAoZGF0YWZyYW1lX3BpZ19jYXRbMSxjb2xuYW1lcyhkYXRhZnJhbWVfcGlnX2NhdCkgPT0gbmFtZV9waWddLCBsZW5ndGgoZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZVssZnVuY3Rpb25faW50ZXJlc3RdKSkNCiAgY29sbmFtZXMocmVzaGFwZWRfZnVuY3Rpb25zX3BpZylbY29sbmFtZXMocmVzaGFwZWRfZnVuY3Rpb25zX3BpZykgPT0gbmFtZV9waWddID0gJ3JlbGF0aXZlX2FidW5kYW5jZScNCiAgcmVzaGFwZWRfZnVuY3Rpb25zID0gbWVyZ2UocmVzaGFwZWRfZnVuY3Rpb25zLCByZXNoYXBlZF9mdW5jdGlvbnNfcGlnLCBhbGwgPSBUUlVFLCBieS55ID0gYygiZnVuY3Rpb25zX2ludGVyZXN0X2ZpbmFsX2RhdGFmcmFtZS4uLmZ1bmN0aW9uX2ludGVyZXN0LiIsInJlbGF0aXZlX2FidW5kYW5jZSIsInBpZyIsImNhdGVnb3J5IiksIGJ5LnggPSBjKGZ1bmN0aW9uX2ludGVyZXN0LCJSZWxhdGl2ZV9hYnVuZGFuY2UiLCJQaWdfbmFtZSIsICJDYXRlZ29yeSIpKQ0KfQ0KDQpgYGANCg0KTm93IHdlIHJlbmFtZSB0aGUgcGlnbGV0IGZvciBhIHNob3J0ZXIgbmFtZSwgbWFrZSB0aGUgY29ycmVzcG9uZGVuY2Ugd2l0aCB0aGUgZGF0YWJhc2UgYW5kIHJlbmFtZSBmdW5jdGlvbnMgd2l0aCBOQSAoZm9ybWVyICItIiBmdW5jdGlvbnMpLg0KDQpgYGB7cn0NCg0KcmVzaGFwZWRfZnVuY3Rpb25zID0gcmVzaGFwZWRfZnVuY3Rpb25zICU+JSBtdXRhdGUoUGlnX25hbWUgPSBnc3ViKCIoXFxEKSoiLCAiIiwgUGlnX25hbWUpKQ0KDQpyZXNoYXBlZF9mdW5jdGlvbnNbLGZ1bmN0aW9uX2ludGVyZXN0XSA9IGZ1bmN0aW9uc19uYW1lX2NvcnJlc3AkRGVmaW5pdGlvbl9mdW5jdGlvblttYXRjaChyZXNoYXBlZF9mdW5jdGlvbnNbLGZ1bmN0aW9uX2ludGVyZXN0XSwgZnVuY3Rpb25zX25hbWVfY29ycmVzcCRDb2RlX2Z1bmN0aW9uKV0NCg0KcmVzaGFwZWRfZnVuY3Rpb25zWyxmdW5jdGlvbl9pbnRlcmVzdF0gPSByZXBsYWNlX25hKHJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdLCJVbmNsYXNzaWZpZWQiKQ0KDQpgYGANCg0KIyMjIFBsb3R0aW5nIGhlYXRtYXBzDQoNCmBgYHtyfQ0KDQojZGVmaW5pdGlvbiBvZiB0aGUgdmFsdWUgdG8gcHJpbnQgb24gdGhlIGNvbG9yIHNjYWxlDQpteV9icmVha3MgPSBjKDFlLTcsIDFlLTYsIDFlLTUsIDFlLTQsIDFlLTMsIDFlLTIsIDAuMSwgMSkNCg0KZ2dwbG90KHJlc2hhcGVkX2Z1bmN0aW9ucywgYWVzKFBpZ19uYW1lLCByZW9yZGVyKHJlc2hhcGVkX2Z1bmN0aW9uc1ssZnVuY3Rpb25faW50ZXJlc3RdLCByZXNoYXBlZF9mdW5jdGlvbnMkUmVsYXRpdmVfYWJ1bmRhbmNlKSwgZmlsbD0gUmVsYXRpdmVfYWJ1bmRhbmNlKSkgKw0KICBnZW9tX3RpbGUoY29sb3VyID0gIndoaXRlIiwgc2l6ZSA9IDAuNSkgKw0KICBzY2FsZV9maWxsX2dyYWRpZW50bihuYW1lID0gImNvdW50IiwjIGRlZmluaXRpb24gb2YgdGhlIGNvbG9yIGdyYWRpZW50Lg0KICAgICAgICAgICAgICAgICAgICB0cmFucyA9ICJsb2ciLCAjY2hvc2luZyBhIGxvZ2FyeXRobWljIGNvbG9yIHNjYWxlDQogICAgICAgICAgICAgICAgICAgIGJyZWFrcyA9IG15X2JyZWFrcywgDQogICAgICAgICAgICAgICAgICAgIGxhYmVscyA9IG15X2JyZWFrcywNCiAgICAgICAgICAgICAgICAgICAgbmEudmFsdWUgPSAiIzQzQTNCOSIsIyBwbG90dGluZyB0aGUgMCBpbiB0aGUgbG93ZXN0IGNvbG9yIG9mIHRoZSBncmFkaWVudA0KICAgICAgICAgICAgICAgICAgICBjb2xvdXJzID0gYygiIzQzQTNCOSIsICAiI0QwRUM5NyIsICIjRkZGRkJGIiwgIiNGRDk0NUQiLCAiI0RDNEU1MSIsICIjMzcwMzAzIikpICsNCiAgc2NhbGVfeV9kaXNjcmV0ZShleHBhbmQ9YygwLCAwKSkrDQogIHNjYWxlX3hfZGlzY3JldGUoZXhwYW5kPWMoMCwgMCkpKw0KICBsYWJzKGZpbGw9IlN1bSBvZiByZWxhdGl2ZSBhYnVuZGFuY2UiLCB0aXRsZSA9IHBhc3RlKCJTdW0gb2YgcmVsYXRpdmUgYWJ1bmRhbmNlIG9mIiwgZnVuY3Rpb25faW50ZXJlc3QsICJieSBwaWdsZXQiKSkrIA0KICB0aGVtZV9ncmV5KGJhc2Vfc2l6ZT0xMikrDQogIHRoZW1lKGxpbmUgPSBlbGVtZW50X2JsYW5rKCksDQogICAgICAgIGF4aXMudGlja3MueCA9IGVsZW1lbnRfYmxhbmsoKSwNCiAgICAgICAgYXhpcy50ZXh0LnguYm90dG9tID0gZWxlbWVudF90ZXh0KGZhY2U9ImJvbGQuaXRhbGljIiksDQogICAgICAgIGF4aXMudGV4dC55ID0gZWxlbWVudF90ZXh0KGZhY2U9ImJvbGQuaXRhbGljIiksDQogICAgICAgIGF4aXMudGl0bGUueCA9IGVsZW1lbnRfYmxhbmsoKSwNCiAgICAgICAgYXhpcy50aXRsZS55ID0gZWxlbWVudF9ibGFuaygpLA0KICAgICAgICBwYW5lbC5ib3JkZXI9ZWxlbWVudF9ibGFuaygpLA0KICAgICAgICBsZWdlbmQudGV4dD1lbGVtZW50X3RleHQoZmFjZT0iYm9sZCIsIHNpemUgPSAxNSksDQogICAgICAgIHBsb3QudGl0bGUgPSBlbGVtZW50X3RleHQoZmFjZT0iYm9sZCIsIHNpemUgPSAyMCksDQogICAgICAgIGxlZ2VuZC50aXRsZSA9IGVsZW1lbnRfdGV4dChmYWNlPSJib2xkIiwgc2l6ZSA9IDE1KSwNCiAgICAgICAgbGVnZW5kLmtleS5zaXplID0gdW5pdCgyLCAiY20iKSwNCiAgICAgICAgc3RyaXAudGV4dC55ID0gZWxlbWVudF90ZXh0KGFuZ2xlID0gMCwgZmFjZSA9ICJib2xkIiwgc2l6ZSA9IDE1KSwNCiAgICAgICAgc3RyaXAudGV4dC54ID0gZWxlbWVudF90ZXh0KGZhY2UgPSAiYm9sZCIsIHNpemUgPSAxNSkpKw0KICBmYWNldF9ncmlkKGNvbHMgPSB2YXJzKGZhY3RvcihyZXNoYXBlZF9mdW5jdGlvbnMkQ2F0ZWdvcnksIGxldmVscyA9IGMoIkNvbnRyb2wiLCAiQ29saXN0aW4iKSkpLA0KICAgICAgICAgICAgIHNjYWxlcyA9ICJmcmVlIiwNCiAgICAgICAgICAgICBzcGFjZSA9ICJmcmVlIiwNCiAgICAgICAgICAgICBsYWJlbGxlciA9ICkNCnNjYWxlID0gMjAwDQpnZ3NhdmUoZmlsZW5hbWUgPSBwYXN0ZSgiLi4vZXhwb3J0L0hNX2Z1bmN0aW9uc18iLCBmdW5jdGlvbl9pbnRlcmVzdCwgIi5wbmciLCBzZXAgPSAiIiksDQogICAgICAgd2lkdGggPSAxNipzY2FsZSwNCiAgICAgICBoZWlnaHQgPSAxOCpzY2FsZSwNCiAgICAgICB1bml0cyA9ICJweCIsDQogICAgICAgZHBpPTIwMCkNCg0KDQpgYGANCg0KQSBzZWNvbmQgaGVhdG1hcCBpcyBjcmVhdGVkLCB3aXRoIHRoZSB1bmtub3duIGRhdGEgcmVtb3ZlZC4NCg0KYGBge3J9DQpyZXNoYXBlZF9mdW5jdGlvbnNfbm9fdW5rbm93biA9IHJlc2hhcGVkX2Z1bmN0aW9uc1stZ3JlcChwYXR0ZXJuID0gJ3Vua25vd258VW5jbGFzc2lmaWVkJywgcmVzaGFwZWRfZnVuY3Rpb25zWyxmdW5jdGlvbl9pbnRlcmVzdF0pLF0NCg0KZ2dwbG90KHJlc2hhcGVkX2Z1bmN0aW9uc19ub191bmtub3duLCBhZXMoUGlnX25hbWUsIHJlb3JkZXIocmVzaGFwZWRfZnVuY3Rpb25zX25vX3Vua25vd25bLGZ1bmN0aW9uX2ludGVyZXN0XSwgcmVzaGFwZWRfZnVuY3Rpb25zX25vX3Vua25vd24kUmVsYXRpdmVfYWJ1bmRhbmNlKSwgZmlsbD0gUmVsYXRpdmVfYWJ1bmRhbmNlKSkgKw0KICBnZW9tX3RpbGUoY29sb3VyID0gIndoaXRlIiwgc2l6ZSA9IDAuNSkgKw0KICBzY2FsZV9maWxsX2dyYWRpZW50bihuYW1lID0gImNvdW50IiwjIGRlZmluaXRpb24gb2YgdGhlIGNvbG9yIGdyYWRpZW50Lg0KICAgICAgICAgICAgICAgICAgICB0cmFucyA9ICJsb2ciLCAjY2hvc2luZyBhIGxvZ2FyeXRobWljIGNvbG9yIHNjYWxlDQogICAgICAgICAgICAgICAgICAgIGJyZWFrcyA9IG15X2JyZWFrcywgDQogICAgICAgICAgICAgICAgICAgIGxhYmVscyA9IG15X2JyZWFrcywNCiAgICAgICAgICAgICAgICAgICAgbmEudmFsdWUgPSAiIzQzQTNCOSIsIyBwbG90dGluZyB0aGUgMCBpbiB0aGUgbG93ZXN0IGNvbG9yIG9mIHRoZSBncmFkaWVudA0KICAgICAgICAgICAgICAgICAgICBjb2xvdXJzID0gYygiIzQzQTNCOSIsICAiI0QwRUM5NyIsICIjRkZGRkJGIiwgIiNGRDk0NUQiLCAiI0RDNEU1MSIsICIjMzcwMzAzIikpICsNCiAgc2NhbGVfeV9kaXNjcmV0ZShleHBhbmQ9YygwLCAwKSkrDQogIHNjYWxlX3hfZGlzY3JldGUoZXhwYW5kPWMoMCwgMCkpKw0KICBsYWJzKGZpbGw9IlN1bSBvZiByZWxhdGl2ZSBhYnVuZGFuY2UiLCB0aXRsZSA9IHBhc3RlKCJTdW0gb2YgcmVsYXRpdmUgYWJ1bmRhbmNlIG9mIiwgZnVuY3Rpb25faW50ZXJlc3QsICJieSBwaWdsZXQgd2l0aG91dCB1bmtub3duIGZ1bmN0aW9ucyIpKSsgDQogIHRoZW1lX2dyZXkoYmFzZV9zaXplPTEyKSsNCiAgdGhlbWUobGluZSA9IGVsZW1lbnRfYmxhbmsoKSwNCiAgICAgICAgYXhpcy50aWNrcy54ID0gZWxlbWVudF9ibGFuaygpLA0KICAgICAgICBheGlzLnRleHQueC5ib3R0b20gPSBlbGVtZW50X3RleHQoZmFjZT0iYm9sZC5pdGFsaWMiKSwNCiAgICAgICAgYXhpcy50ZXh0LnkgPSBlbGVtZW50X3RleHQoZmFjZT0iYm9sZC5pdGFsaWMiKSwNCiAgICAgICAgYXhpcy50aXRsZS54ID0gZWxlbWVudF9ibGFuaygpLA0KICAgICAgICBheGlzLnRpdGxlLnkgPSBlbGVtZW50X2JsYW5rKCksDQogICAgICAgIHBhbmVsLmJvcmRlcj1lbGVtZW50X2JsYW5rKCksDQogICAgICAgIGxlZ2VuZC50ZXh0PWVsZW1lbnRfdGV4dChmYWNlPSJib2xkIiwgc2l6ZSA9IDE1KSwNCiAgICAgICAgcGxvdC50aXRsZSA9IGVsZW1lbnRfdGV4dChmYWNlPSJib2xkIiwgc2l6ZSA9IDIwKSwNCiAgICAgICAgbGVnZW5kLnRpdGxlID0gZWxlbWVudF90ZXh0KGZhY2U9ImJvbGQiLCBzaXplID0gMTUpLA0KICAgICAgICBsZWdlbmQua2V5LnNpemUgPSB1bml0KDIsICJjbSIpLA0KICAgICAgICBzdHJpcC50ZXh0LnkgPSBlbGVtZW50X3RleHQoYW5nbGUgPSAwLCBmYWNlID0gImJvbGQiLCBzaXplID0gMTUpLA0KICAgICAgICBzdHJpcC50ZXh0LnggPSBlbGVtZW50X3RleHQoZmFjZSA9ICJib2xkIiwgc2l6ZSA9IDE1KSkrDQogIGZhY2V0X2dyaWQoY29scyA9IHZhcnMoZmFjdG9yKHJlc2hhcGVkX2Z1bmN0aW9uc19ub191bmtub3duJENhdGVnb3J5LCBsZXZlbHMgPSBjKCJDb250cm9sIiwgIkNvbGlzdGluIikpKSwNCiAgICAgICAgICAgICBzY2FsZXMgPSAiZnJlZSIsDQogICAgICAgICAgICAgc3BhY2UgPSAiZnJlZSIsDQogICAgICAgICAgICAgbGFiZWxsZXIgPSApDQpzY2FsZSA9IDIwMA0KZ2dzYXZlKGZpbGVuYW1lID0gcGFzdGUoIi4uL2V4cG9ydC9ITV9mdW5jdGlvbnNfIiwgZnVuY3Rpb25faW50ZXJlc3QsICJfbm9fdW5rbm93bi5wbmciLCBzZXAgPSAiIiksDQogICAgICAgd2lkdGggPSAxNipzY2FsZSwNCiAgICAgICBoZWlnaHQgPSAxOCpzY2FsZSwNCiAgICAgICB1bml0cyA9ICJweCIsDQogICAgICAgZHBpPTIwMCkNCg0KYGBgDQoNCiMjIyBSZW1vdmluZyB1c2VsZXNzIHZhcmlhYmxlcyBmb3IgYW5vdGhlciBmdW5jdGlvbg0KDQpJZiB0aGUgdXNlciB3YW50cyB0byByZS1ydW4gdGhlIHByb2R1Y3Rpb24gb2YgaGVhdCBtYXBzLCBoZSBuZWVkcyB0byBydW4gdGhlIGZvbGxvd2luZyBjb21tYW5kIGFuZCBnbyBiYWNrIHRvIHRoZSBwb2ludCBbR2V0dGluZyBkYXRhZnJhbWUgZm9yIHRoZSBzZWxlY3RlZCBmdW5jdGlvbl0uDQoNCmBgYHtyfQ0Kcm0obGlzdCA9IGMoImZ1bmN0aW9uc19pbnRlcmVzdF9maW5hbF9kYXRhZnJhbWUiLCJmdW5jdGlvbnNfbmFtZV9jb3JyZXNwIiwgInJlc2hhcGVkX2Z1bmN0aW9ucyIsICJyZXNoYXBlZF9mdW5jdGlvbnNfbm9fdW5rbm93biIsICJyZXNoYXBlZF9mdW5jdGlvbnNfcGlnIiwgImZ1bmN0aW9uX2ludGVyZXN0IiwgIm15X2JyZWFrcyIsICJzY2FsZSIpKQ0KYGBgDQoNCg0K</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIk1ldGFib2xpY19mdW5jdGlvbnNfcHJlcHJvY2Vzc2luZyINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCiMgTWV0YWJvbGljIGZ1bmN0aW9ucyBwcmVwcm9jZXNzaW5nDQoNClRoZSBwcmVwcm9jZXNzaW5nIGlzIG1hZGUgYnkgL3NjcmlwdHMvUmF4X2RhdGFfc3BsaXR0ZXIuUiBhbmQgbWFkZSB0byBoYW5kbGUgdHN2IGlucHV0IGZpbGUgYXMgZGVmYXVsdC4NCg0KIyMgU2V0dGluZyBnZW5lcmFsIHBhcmFtZXRlcnMNCg0KQXMgZ2VuZXJhbCBwYXJhbWV0ZXJzLCB0aGUgdXNlciBjYW4gY2hvb3NlIHRoZSBuYW1lIG9mIHRoZSBpbnB1dCBmaWxlIChtdXN0IGJlIGEgdHN2IGZpbGUsIGlmIG5vdCBzZWUgbmV4dCBwYXJhZ3JhcGgpLCB0aGUgcHJlZml4IG9mIHRoZSBvdXRwdXRzIGZpbGVzIGFuZCB0aGUgbnVtYmVyIG9mIG91dHB1dHMgZmlsZXMuIFRoZSBsYXJnZXIgdGhlIG51bWJlciBvZiBmaWxlcywgdGhlIHNtYWxsZXIgdGhlIHNpemUgb2YgdGhlIG91dHB1dCBmaWxlcywgdGhlIGVhc2llciB0aGV5IHdpbGwgYmUgdG8gcHJvY2Vzcy4NCg0KYGBge3IgY2Fyc30NCmZpbGVwYXRoICAgICAgICA9ICJyYXdfZGF0YS9RdWFudGlmaWNhdGlvbnNfYW5kX2Z1bmN0aW9uYWxfYW5ub3RhdGlvbnMudHN2Ig0Kb3V0cHV0X2Jhc2VuYW1lID0gIkFubm90XyINCm5iX2ZpbGUgICAgID0gMjAgICAgICAgIyBOdW1iZXIgb2YgZmlsZSB3YW50ZWQgYXQgdGhlIGVuZA0KYGBgDQoNCiMjIEltcG9ydGF0aW9uIG9mIHRoZSBpbnB1dCBmaWxlDQoNCioqSWYgdGhlIGlucHV0IGZpbGUgaXMgbm90IGEgdHN2LCB0aGUgc2VwYXJhdG9yIHNob3VsZCBiZSBjaGFuZ2UuKiogVGhlbiBpZiB5b3UgaGF2ZSBhIGZpbGUgc2VwYXJhdGUgYnkgOg0KDQotICAgdGFidWxhdGlvbnMgKC50c3YpIDogZG8gbm90IGNoYW5nZSB0aGUgY29tbWFuZA0KDQotICAgY29tbWFzICguY3N2KSA6IHJlbW92ZSBgc2VwPSJcdCIsYCAuIFRoZSBkZWZhdWx0IHNlcGFyYXRvciBpcyAiLCIgZm9yIGByZWFkLmNzdmAuDQoNCi0gICBzZW1pLWNvbG9uIDogY2hhbmdlIGBzZXA9Ilx0IixgIGJ5IGBzZXA9IjsiYA0KDQpgYGB7cn0NCmRhdGEgPSByZWFkLmNzdihmaWxlcGF0aCwgc2VwPSJcdCIsIGhlYWRlciA9IEZBTFNFKQ0KYGBgDQoNClRoZSBkZWNpbWFsIHNpZ24gaXMgc2V0IGFzICIuIi4gSWYgeW91IHVzZWQgIiwiIGFzIGRlY2ltYWwgZGVsaW1pdGVyLCBwbGVhc2UgYWRkIGBkZWMgPSAiLCJgIGluIHRoZSBjb21tYW5kIGFib3ZlLiBXZSB0cmVhdCB0aGUgaGVhZGVyIGFzIGEgcm93IGJ5IGBoZWFkZXIgPSBGQUxTRWAuDQoNCiMjIFBhcnRpbmcgcmF3IGRhdGEgYnkgdGhlIG51bWJlciBvZiBsaW5lcw0KDQpXZSBjaG9vc2UgdG8gcGFydGluZyB0aGUgZGF0YSBhY2NvcmRpbmcgdG8gdGhlIG51bWJlciBvZiByb3cuDQoNCldlIHJldHJpZXZlIHRoZSB0b3RhbCBudW1iZXIgb2Ygcm93cyBvZiB0aGUgcmF3IGRhdGEgKGBuYl9yb3dzYCkuIFdlIHNldCB0aGUgbnVtYmVyIG9mIHJvd3MgcGVyIGZpbGUgYnkgZGl2aWRpbmcgYG5iX3Jvd3NgIHBlciBgbmJfZmlsZWAuIEFuZCB3ZSBzYXZlIHRoZSBoZWFkZXIgb2YgdGhlIHJhdyBkYXRhIGluIGBoZWFkZXJfbGluZWAgZm9yIGEgZnVydGhlciB1c2UuDQoNCmBgYHtyfQ0KbmJfcm93cyA9IG5yb3coZGF0YSkNCm5iX3Jvd3NfcGVyX2ZpbGUgPSBjZWlsaW5nKG5iX3Jvd3MvbmJyX2ZpY2hpZXIpICNyb3VuZCB1cCB0aGUgbnVtYmVyDQpoZWFkZXJfbGluZSA9IGRhdGFbMSxdDQpgYGANCg0KV2UgZmlsbCBlYWNoIG91dHB1dCBmaWxlIHVzaW5nIGEgZm9yLWxvb3AuDQoNCmBgYHtyfQ0KbmJfcm93X2luZiA9IDEgI3JvdyBudW1iZXIgb2YgdGhlIGhlYWRlciBsaW5lDQoNCmZvciAoaWQgaW4gMTpuYl9maWxlKSB7DQogIG5iX3Jvd19pbmYgPSBuYl9yb3dfaW5mICsgMQ0KICBuYl9yb3dfc3VwID0gaWQqbmJfcm93c19wZXJfZmlsZQ0KICBvdXRfZGYgPSByYmluZChoZWFkZXJfbGluZSwgZGF0YVtuYl9yb3dfaW5mOm5iX3Jvd19zdXAsIF0pDQogIHdyaXRlLnRhYmxlKG91dF9kZiwgDQogICAgICAgICAgICAgIGZpbGUgPSBwYXN0ZSgicmVmaW5lZF9kYXRhLyIsb3V0cHV0X2Jhc2VuYW1lLGlkLCIuY3N2Iiwgc2VwPSIiKSwgDQogICAgICAgICAgICAgIHJvdy5uYW1lcyA9IEZBTFNFLCBjb2wubmFtZXMgPSBGQUxTRSwgc2VwPSI7IikNCiAgbmJfcm93X2luZiA9IG5iX3Jvd19zdXANCn0NCmBgYA0KDQpgbmJfcm93X2luZmAgY29ycmVzcG9uZHMgdG8gdGhlIGZpcnN0IHJvdyBvZiBkYXRhIGZvciB0aGUgb3V0cHV0IGZpbGUuIFdlIHNldCBpdCBhdCAxIHRvIGF2b2lkIHRha2luZyB0aGUgaGVhZGVyIHJvdy4gQW5kIHRoZW4sIGl0IHRha2VzIHRoZSB2YWx1ZSBvZiB0aGUgbGFzdCByb3cgaW4gdGhlIHByZXZpb3VzIG91dHB1dCBmaWxlLiBUaGFua3MgdG8gdGhlICsxIGF0IGVhY2ggYmVnaW5uaW5nIG9mIGxvb3AsIHdlIGF2b2lkIHRoZSByZXBldGl0aW9uIG9mIHRha2luZyB0aGUgc2FtZSByb3cgaW4gdHdvIGRpZmZlcmVudCBmaWxlcy4NCg==</div>
 
 
 
@@ -2296,7 +1885,7 @@ $(document).ready(function () {
 <!-- code folding -->
 <script>
 $(document).ready(function () {
-  window.initializeSourceEmbed("Metabolics_functions_V2.Rmd");
+  window.initializeSourceEmbed("Metabolic_functions_preprocessing.Rmd");
   window.initializeCodeFolding("show" === "show");
 });
 </script>

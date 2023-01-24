@@ -54,7 +54,7 @@ if (Use_kegg) {
   functions_name_corresp = read.csv("../ressources/KEGG_ko_final.csv", sep = ";")
   
   gene_df$KEGG_ko = functions_name_corresp$Definition_function[match(gene_df$KEGG_ko, functions_name_corresp$Code_function)]
-  
+  gene_df$KEGG_ko = as.factor(gene_df$KEGG_ko)
 
 }
 
