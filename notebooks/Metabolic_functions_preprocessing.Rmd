@@ -1,6 +1,6 @@
 ---
 title: "Metabolic_functions_preprocessing"
-output: html_document
+output: html_notebook
 ---
 
 # Metabolic functions preprocessing
