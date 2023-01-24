@@ -313,7 +313,7 @@ write.table(filtered_melted_data,
             sep=";")
 ```
 
-# Creating the heatmap
+## Creating the heatmap
 
 ```{r}
 library(ggplot2)
