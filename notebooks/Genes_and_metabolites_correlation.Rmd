@@ -15,25 +15,17 @@ library(tidyr)
 gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
                    sep="\t",
                    stringsAsFactors = TRUE,
-                   #nrow = 100,
+                   #nrow = 1000,
                    na.strings = c("NA", "-"))
 ```
 
+## Environment variables
 
+If we want to use the KEGG_ko instead of the preferred names, set the following to **True**.
 
-## /!\ WARNING !!!!
-If we want to use the KEGG_ko instead of the preferred names: execute this :
-```{r}
-Use_kegg = TRUE
-```
-else (if we want to use the prefered names), execute this:
 ```{r}
 Use_kegg = FALSE
 ```
-ONLY ONE OF THE TWO CELLS ABOVE MUST BE EXECUTED
-
-
-
 
 After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" which seems to contain names for matched genes.
 
@@ -65,7 +57,6 @@ if (Use_kegg) {
   
 
 }
-
 
 gene_df = drop_na(gene_df)
 print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(gene_df)[1],")"))
@@ -131,12 +122,6 @@ head(data)
 # Correlating *data* data.frame
 
 ```{r}
-library("psych")
-## suppressWarnings is here to not show warnings about standard deviation being null (which slows down the function)
-#cor_res = suppressWarnings(corr.test(data[,-1], method = "spearman", ci = F))
-#cor_data = as.data.frame( cor_res$r )
-#cor_pval = as.data.frame( cor_res$p )
-
 cor_data = as.data.frame(cor(data[, -1], method = "spearman"))
 head(cor_data)
 ```
@@ -145,9 +130,6 @@ head(cor_data)
 cor_data$metabolites <- rownames(cor_data)
 cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)]
 
-#cor_pval$metabolites <- rownames(cor_pval)
-#cor_pval = cor_pval[c(dim(cor_pval)[2], 1:(dim(cor_pval)[2])-1)]
-
 head(cor_data)
 ```
 
@@ -155,10 +137,6 @@ head(cor_data)
 library(reshape2)
 
 melted_data = melt(cor_data, id = "metabolites") ## Melting the data.frame
-#melted_pvalues = melt(cor_pval, id = "metabolites")
-#colnames(melted_pvalues)[3] = "pvalue"
-
-#melted_data = merge(melted_data, melted_pvalues, by = c("metabolites", "variable"))
 
 melted_data = drop_na(melted_data) ## Removing empty columns
 melted_data$metabolites = as.factor(melted_data$metabolites) 
@@ -167,6 +145,8 @@ colnames(melted_data)[2] = "genes"
 ## Removing genes in metabolite column and reverse.
 melted_data = subset(melted_data, metabolites %in% metabo_names & genes %in% gene_names)
 melted_data = droplevels.data.frame(melted_data)
+
+rm(list=c("cor_data"))
 
 head(melted_data)
 ```
@@ -183,33 +163,19 @@ write.table(melted_data,
 
 # Filtering metabolites and genes
 
-## Filtering on correlation p-values
-
-```{r}
-filtered_melted_data = subset(melted_data, pvalue >= 0.05) # Keeping only significative results
-
-head(filtered_melted_data)
-```
-
-We will plot the distribution of correlation values.
-
-```{r}
-hist(abs(filtered_melted_data$value), 
-     breaks = 40)
-```
-
 ## Filtering on correlation values
 
 In order to do that, we filter the `melted_data` data frame to keep rows if the correlation value is more than the threshold or less than the negative threshold.
 
 ```{r}
-
-thres_keep = 0
+thres_keep = 0.6
 
 filtered_melted_data = melted_data %>% subset(melted_data$value <= -thres_keep | melted_data$value >= thres_keep)
 
-head(filtered_melted_data)
+filtered_melted_data = droplevels.data.frame(filtered_melted_data)
 
+rm(list=c("melted_data"))
+head(filtered_melted_data)
 ```
 
 We then subset *melted_data* using thresholds on both genes and metabolites. For that we will plot the distribution of correlation means.
@@ -221,13 +187,55 @@ library(ggplot2)
 We plot the threshold on histograms to see where it lands
 
 ```{r}
-
-print(paste("Number of correlation with a value superior to the threshold (", thres_keep, ") : ", sum(metabo_gene_thres$value >= thres_keep)))
+print(paste("Number of correlation with a value superior to the threshold (", thres_keep, ") : ", sum(filtered_melted_data$value >= thres_keep)))
 
 print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(filtered_melted_data$value <= -thres_keep)))
 ```
 
-We save the filtered dataframe.
+## Filtering on correlation p-values
+
+```{r}
+selected_genes = levels(filtered_melted_data$genes)
+selected_metabo = levels(filtered_melted_data$metabolites)
+
+tmp_data = data[,c(selected_genes, selected_metabo)]
+
+library("psych")
+## suppressWarnings is here to not show warnings about standard deviation being null (which slows down the function)
+cor_res = suppressWarnings(corr.test(tmp_data[,-1], method = "spearman", ci = F))
+cor_pval = as.data.frame( cor_res$p )
+cor_pval$metabolites <- rownames(cor_pval)
+cor_pval = cor_pval[c(dim(cor_pval)[2], 1:(dim(cor_pval)[2])-1)]
+
+melted_pval = melt(cor_pval, id = "metabolites") ## Melting the data.frame
+
+melted_pval = drop_na(melted_pval) ## Removing empty columns
+melted_pval$metabolites = as.factor(melted_pval$metabolites) 
+colnames(melted_pval)[2] = "genes"
+
+melted_pval = subset(melted_pval, metabolites %in% metabo_names & genes %in% gene_names)
+colnames(melted_pval)[3] = "pvalue"
+melted_pval = droplevels.data.frame(melted_pval)
+
+filtered_melted_pval = subset(melted_pval, pvalue >= 0.05) # Keeping only significative results
+
+rm(list=c("melted_pval", "tmp_data"))
+head(filtered_melted_pval)
+```
+
+```{r}
+filtered_melted_data = merge(filtered_melted_data, filtered_melted_pval, 
+                             by = c("metabolites", "genes"))
+```
+
+We will plot the distribution of correlation values.
+
+```{r}
+hist(abs(filtered_melted_data$value), 
+     breaks = 40)
+```
+
+We then export the filtered data.frame.
 
 ```{r}
 write.table(filtered_melted_data, 
@@ -240,7 +248,6 @@ write.table(filtered_melted_data,
 # Creating the heatmap
 
 ```{r}
-
 filtered_melted_data_ordered = order(filtered_melted_data[,-c(1,2)], decreasing = TRUE)
 filtered_melted_data = filtered_melted_data[filtered_melted_data_ordered[1:100],]
 

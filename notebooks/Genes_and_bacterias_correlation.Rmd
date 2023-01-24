@@ -1,0 +1,311 @@
+---
+title: "Gene and bacteria correlation"
+output: html_notebook
+---
+
+# Loading datasets
+
+```{r}
+library(tidyr)
+```
+
+## Gene dataset
+
+```{r}
+gene_df = read.csv(file="../raw_data/Quantifications_and_functional_annotations.tsv",
+                   sep="\t",
+                   stringsAsFactors = TRUE,
+                   #nrow = 1000,
+                   na.strings = c("NA", "-"))
+```
+
+## Environment variables
+
+If we want to use the KEGG_ko instead of the preferred names, set the following to **True** or **T**.
+
+```{r}
+Use_kegg = F
+```
+
+After loading the gene dataset, we remove all columns except those containing the number of reads and the columns called "Prefered name" which seems to contain names for matched genes.
+
+```{r}
+if (Use_kegg) {
+  Column_of_interest = 47
+} else {
+  Column_of_interest = 44
+}
+
+dim_raw = dim(gene_df)[1]
+gene_df = gene_df[,c(2:35,Column_of_interest)]
+
+## Computing relative abundance
+for (i in 1:34){
+  sum_col = sum(gene_df[,i])
+  if (sum_col != 0){
+    gene_df[,i] = gene_df[,i]/sum_col
+  }
+}
+
+
+if (Use_kegg) {
+  gene_df = separate_rows(gene_df,all_of( "KEGG_ko"), sep = ",", convert = TRUE)
+  
+  functions_name_corresp = read.csv("../ressources/KEGG_ko_final.csv", sep = ";")
+  
+  gene_df$KEGG_ko = functions_name_corresp$Definition_function[match(gene_df$KEGG_ko, functions_name_corresp$Code_function)]
+  gene_df$KEGG_ko = as.factor(gene_df$KEGG_ko)
+  
+
+}
+
+gene_df = drop_na(gene_df)
+print(paste0((dim(gene_df)[1]/dim_raw)*100, "% of the rows have been conserved (",dim(gene_df)[1],")"))
+
+head(gene_df)
+colnames(gene_df) = c(paste0("Piglet_", seq(34)), "Gene")
+gene_df = gene_df[c(dim(gene_df)[2], 1:(dim(gene_df)[2])-1)] #pour mettre la colonne gène à gauche.
+```
+
+The relative abundances are then computed.
+
+We then aggregate the duplicated genes by row.
+
+```{r}
+gene_df = aggregate(gene_df[-1], by = list(gene_df$Gene), FUN = sum)
+colnames(gene_df)[1] = "Gene"
+
+gene_names = levels(gene_df$Gene) ## Saving the list of genes names for later
+head(gene_df)
+```
+
+Finally, the data.frame is translated.
+
+```{r}
+gene_df = as.data.frame(t(gene_df)) #on transpose df (indiv en ligne et genes en colonne)
+colnames(gene_df) = gene_df[1,]
+gene_df = gene_df[-1,]
+gene_df$Piglet = rownames(gene_df)
+
+head(gene_df)
+```
+
+## bacteria dataset
+
+```{r}
+bacteria_df = read.csv(file="../refined_data/complete_taxonomy_X_sample.csv",
+                    sep=";",
+                    stringsAsFactors = TRUE,
+                    na.strings = "NA",
+                    check.names = F)
+
+bacteria_df = droplevels.data.frame(subset(bacteria_df, kingdom == "Bacteria",
+                                            select = -c(root, kingdom)) )
+bacteria_df = aggregate(bacteria_df[,paste0("abond", seq(34))],
+                         by = list(bacteria_df$genus),
+                         FUN = sum)
+colnames(bacteria_df) = c("bacteria", paste0("Piglet_", seq(34)))
+
+bacteria_df = as.data.frame(t(bacteria_df))
+colnames(bacteria_df) = bacteria_df["bacteria",]
+bacteria_df = bacteria_df[-1,]
+bacteria_df$Piglet = rownames(bacteria_df)
+rownames(bacteria_df) = NULL
+
+bacteria_names = colnames(bacteria_df[-1]) ## Saving the name of bacterias for later
+
+head(bacteria_df)
+```
+
+## Merging both dataframe
+
+```{r}
+data = merge(gene_df, bacteria_df, by = "Piglet", all = T) ## Merging dataframes by the name of the piglet.
+
+data[,-1] = as.numeric(unlist(data[,-1])) ## Converting characters to numeric
+data = Filter(function(x)!all(is.na(x)), data) ## Removing empty columns
+
+rm(list=c("gene_df", "bacteria_df"))
+
+head(data)
+```
+
+# Correlating *data* data.frame
+
+```{r}
+cor_data = as.data.frame(cor(data[, -1], method = "spearman"))
+
+head(cor_data)
+```
+
+```{r}
+cor_data$bacteria <- rownames(cor_data)
+cor_data = cor_data[c(dim(cor_data)[2], 1:(dim(cor_data)[2])-1)]
+
+head(cor_data)
+```
+
+```{r}
+library(reshape2)
+
+melted_data = melt(cor_data, id = "bacteria") ## Melting the data.frame
+
+melted_data = drop_na(melted_data) ## Removing empty columns
+melted_data$bacteria = as.factor(melted_data$bacteria) 
+colnames(melted_data)[2] = "genes"
+
+## Removing genes in bacteria column and reverse.
+melted_data = subset(melted_data, bacteria %in% bacteria_names & genes %in% gene_names)
+melted_data = droplevels.data.frame(melted_data)
+
+rm(list=c("cor_data"))
+
+head(melted_data)
+```
+
+We then export the current dataframe.
+
+```{r}
+write.table(melted_data, 
+            file = "../refined_data/bacteria_X_gene_cor.tsv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep="\t")
+```
+
+# Filtering bacterias and genes
+
+## Filtering on correlation values
+
+In order to do that, we filter the `melted_data` data frame to keep rows if the correlation value is more than the threshold or less than the negative threshold.
+
+```{r}
+thres_keep = 0.6
+
+filtered_melted_data = melted_data %>% subset(melted_data$value <= -thres_keep | melted_data$value >= thres_keep)
+
+filtered_melted_data = droplevels.data.frame(filtered_melted_data)
+
+rm(list=c("melted_data"))
+head(filtered_melted_data)
+```
+
+We then subset *melted_data* using thresholds on both genes and bacteria. For that we will plot the distribution of correlation means.
+
+```{r}
+library(ggplot2)
+```
+
+We plot the threshold on histograms to see where it lands
+
+```{r}
+print(paste("Number of correlation with a value superior to the threshold (", thres_keep, ") : ", sum(filtered_melted_data$value >= thres_keep)))
+
+print(paste("Number of correlation with a value inferior to the inversed threshold (", -thres_keep, ") : ", sum(filtered_melted_data$value <= -thres_keep)))
+```
+
+## Filtering on correlation p-values
+
+```{r}
+selected_genes = levels(filtered_melted_data$genes)
+selected_bacteria = levels(filtered_melted_data$bacteria)
+
+tmp_data = data[,c(selected_genes, selected_bacteria)]
+
+library("psych")
+## suppressWarnings is here to not show warnings about standard deviation being null (which slows down the function)
+cor_res = suppressWarnings(corr.test(tmp_data[,-1], method = "spearman", ci = F))
+cor_pval = as.data.frame( cor_res$p )
+cor_pval$bacteria <- rownames(cor_pval)
+cor_pval = cor_pval[c(dim(cor_pval)[2], 1:(dim(cor_pval)[2])-1)]
+
+melted_pval = melt(cor_pval, id = "bacteria") ## Melting the data.frame
+
+melted_pval = drop_na(melted_pval) ## Removing empty columns
+melted_pval$bacteria = as.factor(melted_pval$bacteria) 
+colnames(melted_pval)[2] = "genes"
+
+melted_pval = subset(melted_pval, bacteria %in% bacteria_names & genes %in% gene_names)
+colnames(melted_pval)[3] = "pvalue"
+melted_pval = droplevels.data.frame(melted_pval)
+
+filtered_melted_pval = subset(melted_pval, pvalue >= 0.05) # Keeping only significative results
+
+rm(list=c("melted_pval", "tmp_data"))
+head(filtered_melted_pval)
+```
+
+```{r}
+filtered_melted_data = merge(filtered_melted_data, filtered_melted_pval, 
+                             by = c("bacteria", "genes"))
+```
+
+We will plot the distribution of correlation values.
+
+```{r}
+hist(abs(filtered_melted_data$value), 
+     breaks = 40)
+```
+
+We then export the filtered data.frame.
+
+```{r}
+write.table(filtered_melted_data, 
+            file = "../refined_data/filtered_bacteria_X_gene_cor.csv",
+            col.names = TRUE,
+            row.names = FALSE,
+            sep=";")
+```
+
+# Creating the heatmap
+
+```{r}
+library(ggplot2)
+
+filtered_melted_data_ordered = order(filtered_melted_data[,-c(1,2)], decreasing = TRUE)
+filtered_melted_data = filtered_melted_data[filtered_melted_data_ordered[1:100],]
+
+ggplot(filtered_melted_data, aes(genes, bacteria, fill= value)) +
+  geom_tile(colour = "white", size = 0.5)+
+  scale_fill_gradientn(name = "Correlation coefficient",# definition of the color gradient.
+                       #trans = "log10", #chosing a logarythmic color scale
+                       breaks = c(-1, -0.5, 0, 0.5 ,1), 
+                       labels = c(-1, -0.5, 0, 0.5 ,1),
+                       #na.value = "#43A3B9",# plotting the 0 in the lowest color of the gradient
+                       colours = c("#43A3B9",  "#D0EC97", "#FFFFDF", "#FD945D", "#DC4E51", "#370303"),
+  )+
+  
+  scale_x_discrete(expand=c(0, 0))+ # Removing blank space between data and X axis
+  labs(fill="correlation coefficient", # Setting legend and title name
+       title = "Correlation coefficients between genes and bacterias")+
+  theme_grey(base_size=12)+ # Setting the base font size
+  theme(line = element_blank(), # Removing the lines in between the boxes
+        axis.ticks.x = element_blank(), # Removing ticks on X axis
+        axis.text.x = element_text(angle = 90, face="bold.italic", size = 30), # Removing X labels
+        axis.text.y = element_text(face="bold.italic", size = 30), # Setting Y labels to bold
+        axis.title.x = element_blank(), # Removing X axis title
+        axis.title.y = element_blank(), # Removing Y axis title
+        panel.border=element_blank(), # Removing space between figure and panel
+        legend.text=element_text(face="bold", size = 15), # Customizing legend font
+        plot.title = element_text(face="bold", size = 50), # Same with main title
+        legend.title = element_text(face="bold", size = 15), # Same with legend
+        legend.key.size = unit(2, "cm"), # Setting the legend scale
+        strip.text.y = element_text(angle = 0, face = "bold", size = 15),
+        strip.text.x = element_text( face = "bold", size = 15))
+        
+  #facet_grid(rows = vars(filtered_data$kingdom), 
+             #cols = vars(factor(filtered_data$cat, 
+                                #levels = c("Control", "Colistin"))),
+             #scales = "free",
+             #space = "free")
+
+#SAVE HEATMAP  
+scale = 200 # Set the scale for the exported image
+
+ggsave(filename = "../export/heatmap_correlation_bacteria_X_genes.png",
+       plot = last_plot(),
+       width = 40*scale,
+       height = 30*scale,
+       units = "px",
+       dpi=200)
+```
