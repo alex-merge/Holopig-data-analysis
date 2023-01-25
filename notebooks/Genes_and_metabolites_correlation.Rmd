@@ -217,7 +217,7 @@ melted_pval = subset(melted_pval, metabolites %in% metabo_names & genes %in% gen
 colnames(melted_pval)[3] = "pvalue"
 melted_pval = droplevels.data.frame(melted_pval)
 
-filtered_melted_pval = subset(melted_pval, pvalue >= 0.05) # Keeping only significative results
+filtered_melted_pval = subset(melted_pval, pvalue <= 0.05) # Keeping only significative results
 
 rm(list=c("melted_pval", "tmp_data"))
 head(filtered_melted_pval)
